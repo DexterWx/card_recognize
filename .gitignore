@@ -1,1 +1,4 @@
 /target
+/test_data/
+/*.jpg
+/*.png
