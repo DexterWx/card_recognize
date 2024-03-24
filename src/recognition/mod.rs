@@ -3,5 +3,7 @@
 
 pub mod baizheng;
 mod black_fill;
-mod hand_write;
-mod init;
+mod numbers;
+mod vx;
+mod engine;
+mod barcode;
