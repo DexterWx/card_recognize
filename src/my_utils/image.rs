@@ -18,7 +18,7 @@ macro_rules! impl_has_coordinates {
 }
 impl_has_coordinates!(Point<T>);
 
-
+/// 计算一组点的中心点
 pub fn calculate_points_center<T, K>(points: &[T]) -> Option<(i32, i32)>
 where
     T: HasCoordinates<K>,
@@ -50,7 +50,7 @@ where
     Some((center_x, center_y))
 }
 
-
+/// 根据给定的中心点center按角度angle_rad顺时针旋转
 pub fn rotate_point(point: MyPoint, center: &MyPoint, angle_rad: f32) -> (i32, i32)
 {
     let cos_theta:f32 = angle_rad.cos();

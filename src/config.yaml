@@ -1,0 +1,4 @@
+image_process:
+  gaussian_blur_sigma: 1.0
+  binarization_threshold: 180
+  morphology_kernel: 5

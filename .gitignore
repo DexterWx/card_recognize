@@ -1,4 +1,4 @@
 /target
-/test_data/
 /*.jpg
 /*.png
+/dev/test_data/

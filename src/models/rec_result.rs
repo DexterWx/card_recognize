@@ -35,15 +35,22 @@ pub struct Page{
 pub struct Recognize{
     pub rec_id: String,
     pub rec_type: u8,
-    pub value: RecValue
+    pub res_value: RecValue
 }
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RecValue{
-    pub single_item: Option<String>,
-    pub multi_item: Option<Vec<String>>,
-    pub numbers: Option<f32>,
+    pub value: Option<Vec<Value>>,
     pub coordinates: Option<Coordinates>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)] // Allows using multiple types for the enum variants
+pub enum Value {
+    String(String),
+    Integer(i32),
+    Float(f32),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -4,18 +4,6 @@
 
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct InputTest1 {
-    pub index1: u8,
-    pub index2: Option<Vec<InputTest2>>
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct InputTest2 {
-    pub index1: u8,
-    pub index2: Option<String>
-}
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Input1 {
@@ -61,7 +49,7 @@ pub struct Coordinate {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PageNumberPoint {
-    pub filled: f32,
+    pub fill_rate: f32,
     pub coordinate: Coordinate,
 }
 
@@ -74,6 +62,14 @@ pub struct Recognition {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Item {
-    pub value: Option<String>, // Assuming value can be a string for all types
+    pub value: Option<Value>, // Assuming value can be a string for all types
     pub coordinate: Coordinate,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)] // Allows using multiple types for the enum variants
+pub enum Value {
+    String(String),
+    Integer(i32),
+    Float(f32),
 }

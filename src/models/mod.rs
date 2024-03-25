@@ -21,3 +21,15 @@ pub mod card{
         pub y: i32,
     }
 }
+
+/// 定义引擎各种识别方法所需的结构体
+/// 将每个方法所需要用到的字段整理成对应的结构体
+pub mod engine_rec{
+    use super::scan_json::{ModelSize, PageNumberPoint};
+    /// 大摆正所需要的信息
+    pub struct RecInfoBaizheng<'a>{
+        pub model_size: &'a ModelSize,
+        pub page_number_points: &'a Vec<PageNumberPoint>
+    }
+}
+
