@@ -4,8 +4,7 @@ use crate::recognition::engine::Engine;
 
 
 pub trait RecBarcode{
-    /// 输入的图片已经是经过小角度摆正的图片
-    /// 该函数根据页码点进行大角度摆正
+    /// 条形码识别
     fn rec_barcode<T, D>(&self, toinfo: T, img: &DynamicImage) -> D;
 }
 
