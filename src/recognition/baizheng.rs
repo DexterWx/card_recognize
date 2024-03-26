@@ -9,6 +9,7 @@ use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
 
 use crate::models::engine_rec::RecInfoBaizheng;
+use crate::models::scan_json::Coordinate;
 use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
 use crate::recognition::engine::Engine;
@@ -134,7 +135,19 @@ pub fn rotate_with_page_number(baizheng_info: &RecInfoBaizheng, img: &DynamicIma
     if flag_need_90{
         let img_rgb = rotate_about_center(&img_rgb, PI/2.0, Interpolation::Bilinear, Rgb([255,255,255]));
     }
-    
+    // 对比当前图片页码点匹配率和旋转180后页码点匹配率，选择更大匹配率作为图片的最终摆正
+    // 第一次获取真实页码点框
+    use imageproc::drawing::{draw_hollow_rect_mut};
+    let mut img_tmp = img_rgb;
+    let mut real_page_number_coordinates: Vec<Coordinate> = Vec::new();
+    for page_number in baizheng_info.page_number_points{
+        let real_coordinate = generata_real_coordinate_with_model_points(
+            baizheng_info.model_points, baizheng_info.real_model_points, &page_number.coordinate
+        );
+        real_page_number_coordinates.push(real_coordinate);
+        draw_hollow_rect_mut(img_tmp, )
+    }
+
 
 
 }

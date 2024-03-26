@@ -22,29 +22,29 @@ pub struct Input2 {
 pub struct Page {
     pub card_columns: u8,
     pub model_size: ModelSize,
-    pub model_points: Vec<LocationPoint>,
+    pub model_points: Vec<ModelPoint>,
     pub page_number_points: Vec<PageNumberPoint>,
     pub recognizes: Vec<Recognition>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModelSize {
-    pub w: u32,
-    pub h: u32,
+    pub w: i32,
+    pub h: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LocationPoint {
-    pub point_type: u32,
+pub struct ModelPoint {
+    pub point_type: u8,
     pub coordinate: Coordinate,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Coordinate {
-    pub x: u32,
-    pub y: u32,
-    pub w: u32,
-    pub h: u32,
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

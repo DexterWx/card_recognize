@@ -1,7 +1,7 @@
 use std::ops::{Mul, Sub, Add};
 use imageproc::point::Point;
 
-use crate::models::card::MyPoint;
+use crate::models::{card::MyPoint, scan_json::{Coordinate, ModelPoint}};
 
 trait HasCoordinates<T> {
     fn get_coordinates(&self) -> (&T, &T);
@@ -62,4 +62,26 @@ pub fn rotate_point(point: MyPoint, center: &MyPoint, angle_rad: f32) -> (i32, i
     let rotated_y = (center.y as f32) + (x_diff as f32) * sin_theta + (y_diff as f32) * cos_theta;
 
     (rotated_x as i32, rotated_y as i32)
+}
+
+pub fn generata_real_coordinate_with_model_points(model_points: &[ModelPoint;3], real_model_points: &[MyPoint;3], coordinate: &Coordinate) -> Coordinate{
+    let x_rate = ((real_model_points[0].x - real_model_points[1].x) as f32) / ((model_points[0].coordinate.x - model_points[1].coordinate.x) as f32);
+    let y_rate = ((real_model_points[0].y - real_model_points[2].y) as f32) / ((model_points[0].coordinate.y - model_points[2].coordinate.y) as f32);
+
+    let real_w = x_rate * (coordinate.w as f32);
+    let real_h = y_rate * (coordinate.h as f32);
+
+    let real_x_center = x_rate * (coordinate.x - model_points[0].coordinate.x) as f32 + real_model_points[0].x as f32;
+    let real_y_center = y_rate * (coordinate.y - model_points[0].coordinate.y) as f32 + real_model_points[0].y as f32;
+
+    let real_x = real_x_center - real_w/2.0;
+    let real_y = real_y_center - real_h/2.0;
+
+    Coordinate{
+        x: real_x as i32,
+        y: real_y as i32,
+        w: real_w as i32,
+        h: real_h as i32
+    }
+    
 }
