@@ -35,13 +35,13 @@ pub struct Page{
 pub struct Recognize{
     pub rec_id: String,
     pub rec_type: u8,
-    pub res_value: RecValue
+    pub rec_options: Vec<RecOption>
 }
 
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RecValue{
-    pub value: Option<Vec<Value>>,
+pub struct RecOption{
+    pub value: Option<Value>,
     pub coordinates: Option<Coordinates>
 }
 
