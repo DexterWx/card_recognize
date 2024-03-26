@@ -10,11 +10,13 @@ use std::fs::File;
 use std::io::Read;
 
 use models::scan_json::Input1;
-use recognition::baizheng::process_img;
+use recognition::baizheng::rotate_with_location;
 use config::CONFIG;
 
 #[cfg(test)]
 mod tests {
+
+    use image::Rgba;
 
     use super::*;
 
@@ -37,9 +39,11 @@ mod tests {
     #[test]
     fn test_image(){
         use imageproc::drawing::{draw_filled_circle_mut};
-        let (mut img,[lt,rt,ld,rd]) = process_img("dev/test_data/test_3.jpg");
+
+        let img = image::open("dev/test_data/test_3.jpg").expect("Failed to open image file");
+        let (mut img,[lt,rt,ld,rd]) = rotate_with_location(&img);
         for point in [lt,rt,ld,rd]{
-            draw_filled_circle_mut(&mut img, (point.x as i32, point.y as i32), 10, Rgb([0, 0, 255]));
+            draw_filled_circle_mut(&mut img, (point.x as i32, point.y as i32), 10, Rgba([0, 0, 255, 0]));
         }
         img.save("dev/test_data/output_location.jpg").expect("Failed to save image");
     }

@@ -1,23 +1,39 @@
 use std::f32::consts::PI;
 
-use image::{DynamicImage, GenericImageView, GrayImage, Luma};
+use image::{DynamicImage, GenericImageView, GrayImage, Luma,ImageBuffer, Rgb, RgbImage};
 use imageproc::filter::{gaussian_blur_f32,median_filter};
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use imageproc::morphology::{erode, dilate};
 use imageproc::distance_transform::{distance_transform, Norm};
 use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
-use image::{ImageBuffer, Rgb, RgbImage};
 
 use crate::models::engine_rec::RecInfoBaizheng;
 use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
+use crate::recognition::engine::Engine;
 use crate::config::CONFIG;
 
-/// 输入图片路径，输出小角度摆正图和四个定位点
-pub fn process_img(inimg: &str) -> (RgbImage, [MyPoint;4]){
-    // 读取图像文件
-    let img = image::open(inimg).expect("Failed to open image file");
+
+pub trait Baizheng{
+    /// 输入的图片已经是经过小角度摆正的图片
+    /// 该函数根据页码点进行大角度摆正
+    fn rotate_with_page_number<T, D>(&self, toinfo: T, img: &DynamicImage) -> D;
+}
+
+impl Baizheng for Engine {
+    fn rotate_with_page_number<T, D>(&self, toinfo: T, img: &DynamicImage) -> D {
+        
+        unimplemented!()
+    }
+}
+
+
+
+/// 输入DynamicImage图片
+/// 不需要scan信息，纯靠图片寻找定位点并进行小角度摆正
+/// 输出小角度摆正图和四个定位点
+pub fn rotate_with_location(img: &DynamicImage) -> (DynamicImage, [MyPoint;4]){
     // 将图像转换为灰度图像
     let gray_img = img.to_luma8();
 
@@ -105,19 +121,20 @@ pub fn process_img(inimg: &str) -> (RgbImage, [MyPoint;4]){
     let (new_x, new_y) = rotate_point(rd, &center, -angle_radians1);
     let rd = MyPoint{x:new_x, y:new_y};
 
+    let rotated_img: DynamicImage = rotated_img.into();
     (rotated_img,[lt,rt,ld,rd])
 }
 
 /// 输入的图片已经是经过小角度摆正的图片
 /// 该函数根据页码点进行大角度摆正
-pub fn rotate_with_page_number(baizheng_info: &RecInfoBaizheng, img: &RgbImage){
+pub fn rotate_with_page_number(baizheng_info: &RecInfoBaizheng, img: &DynamicImage){
+    let img_rgb = img.to_rgb8();
     // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
-    let flag_need_90 = (baizheng_info.model_size.h > baizheng_info.model_size.w) != (img.height() > img.width());
+    let flag_need_90 = (baizheng_info.model_size.h > baizheng_info.model_size.w) != (img_rgb.height() > img_rgb.width());
     if flag_need_90{
-        let rotated_img = rotate_about_center(img, PI/2.0, Interpolation::Bilinear, Rgb([255,255,255]));
-    
-    
+        let img_rgb = rotate_about_center(&img_rgb, PI/2.0, Interpolation::Bilinear, Rgb([255,255,255]));
     }
     
+
 
 }
