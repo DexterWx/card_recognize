@@ -1,6 +1,5 @@
-use std::ops::{Mul, Sub, Add};
 use imageproc::point::Point;
-
+use image::DynamicImage;  
 use crate::models::{card::MyPoint, scan_json::{Coordinate, ModelPoint}};
 
 trait HasCoordinates<T> {
@@ -84,4 +83,12 @@ pub fn generata_real_coordinate_with_model_points(model_points: &[ModelPoint;3],
         h: real_h as i32
     }
     
+}
+
+/**
+ * 截取图像
+ */
+pub fn crop_image(image: &DynamicImage, coor: Coordinate) -> DynamicImage {
+    let crop = image.crop(coor.x as u32, coor.y as u32, coor.w as u32, coor.h as u32);
+    crop
 }
