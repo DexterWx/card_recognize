@@ -18,8 +18,8 @@ pub struct Output{
 pub struct ImageStatus{
     pub image_source: String,
     pub code: u8,
-    pub w: u32,
-    pub h: u32
+    pub w: i32,
+    pub h: i32
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,13 +35,13 @@ pub struct Page{
 pub struct Recognize{
     pub rec_id: String,
     pub rec_type: u8,
-    pub res_value: RecValue
+    pub rec_options: Vec<RecOption>
 }
 
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RecValue{
-    pub value: Option<Vec<Value>>,
+pub struct RecOption{
+    pub value: Option<Value>,
     pub coordinates: Option<Coordinates>
 }
 
@@ -55,8 +55,8 @@ pub enum Value {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Coordinates{
-    pub x: u32,
-    pub y: u32,
-    pub h: u32,
-    pub w: u32
+    pub x: i32,
+    pub y: i32,
+    pub h: i32,
+    pub w: i32
 }
