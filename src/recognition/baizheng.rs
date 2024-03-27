@@ -1,12 +1,13 @@
 use std::f32::consts::PI;
 
-use image::{DynamicImage, GenericImageView, GrayImage, Luma,ImageBuffer, Rgb, RgbImage};
+use image::{DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb, RgbImage, Rgba};
 use imageproc::filter::{gaussian_blur_f32,median_filter};
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use imageproc::morphology::{erode, dilate};
 use imageproc::distance_transform::{distance_transform, Norm};
 use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
+use imageproc::rect::Rect;
 
 use crate::models::engine_rec::RecInfoBaizheng;
 use crate::models::scan_json::Coordinate;
@@ -16,18 +17,18 @@ use crate::recognition::engine::Engine;
 use crate::config::CONFIG;
 
 
-pub trait Baizheng{
-    /// 输入的图片已经是经过小角度摆正的图片
-    /// 该函数根据页码点进行大角度摆正
-    fn rotate_with_page_number<T, D>(&self, toinfo: T, img: &DynamicImage) -> D;
-}
+// pub trait Baizheng{
+//     /// 输入的图片已经是经过小角度摆正的图片
+//     /// 该函数根据页码点进行大角度摆正
+//     fn rotate_with_page_number<T, D>(&self, toinfo: T, img: &DynamicImage) -> D;
+// }
 
-impl Baizheng for Engine {
-    fn rotate_with_page_number<T, D>(&self, toinfo: T, img: &DynamicImage) -> D {
+// impl Baizheng for Engine {
+//     fn rotate_with_page_number<T, D>(&self, toinfo: T, img: &DynamicImage) -> D {
         
-        unimplemented!()
-    }
-}
+//         unimplemented!()
+//     }
+// }
 
 
 
@@ -128,26 +129,36 @@ pub fn rotate_with_location(img: &DynamicImage) -> (DynamicImage, [MyPoint;4]){
 
 /// 输入的图片已经是经过小角度摆正的图片
 /// 该函数根据页码点进行大角度摆正
-pub fn rotate_with_page_number(baizheng_info: &RecInfoBaizheng, img: &DynamicImage){
-    let img_rgb = img.to_rgb8();
+pub fn rotate_with_page_number(baizheng_info: &RecInfoBaizheng, img: &mut DynamicImage){
+    let mut img_rgb = img.to_rgb8();
     // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
-    let flag_need_90 = (baizheng_info.model_size.h > baizheng_info.model_size.w) != (img_rgb.height() > img_rgb.width());
+    let flag_need_90 = (baizheng_info.model_size.h > baizheng_info.model_size.w) != (img.height() > img.width());
     if flag_need_90{
-        let img_rgb = rotate_about_center(&img_rgb, PI/2.0, Interpolation::Bilinear, Rgb([255,255,255]));
+        img_rgb = rotate_about_center(&img_rgb, PI/2.0, Interpolation::Bilinear, Rgb([255,255,255]));
     }
+    let img = DynamicImage::from(img_rgb);
     // 对比当前图片页码点匹配率和旋转180后页码点匹配率，选择更大匹配率作为图片的最终摆正
     // 第一次获取真实页码点框
-    use imageproc::drawing::{draw_hollow_rect_mut};
-    let mut img_tmp = img_rgb;
     let mut real_page_number_coordinates: Vec<Coordinate> = Vec::new();
+    let mut page_number_fill_rates = Vec::new();
     for page_number in baizheng_info.page_number_points{
         let real_coordinate = generata_real_coordinate_with_model_points(
             baizheng_info.model_points, baizheng_info.real_model_points, &page_number.coordinate
         );
+        page_number_fill_rates.push(page_number.fill_rate);
         real_page_number_coordinates.push(real_coordinate);
-        draw_hollow_rect_mut(img_tmp, )
     }
-
-
+    // 灰度图算填涂率
+    let mut blurred_img = img.to_luma8();
+    // 对模糊后的图像进行二值化
+    blurred_img.enumerate_pixels_mut().for_each(|(_, _, pixel)| {
+        if pixel[0] > CONFIG.image_process.binarization_threshold {
+            *pixel = Luma([255u8]);
+        } else {
+            *pixel = Luma([0u8]);
+        }
+    });
+    // img_tmp.save("dev/test_data/output_pnumber.jpg").expect("Failed to save image");
+    let first_match_rate = calculate_page_number_match_rate(&blurred_img, &real_page_number_coordinates, &page_number_fill_rates);
 
 }

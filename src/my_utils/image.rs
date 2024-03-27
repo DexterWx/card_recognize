@@ -1,7 +1,9 @@
 use std::ops::{Mul, Sub, Add};
-use imageproc::point::Point;
+use image::{DynamicImage, GrayImage, ImageBuffer, Luma, Rgb, RgbImage};
+use imageproc::{filter::gaussian_blur_f32, point::Point};
+use imageproc::integral_image::sum_image_pixels;
 
-use crate::models::{card::MyPoint, scan_json::{Coordinate, ModelPoint}};
+use crate::{config::CONFIG, models::{card::MyPoint, scan_json::{Coordinate, ModelPoint}}};
 
 trait HasCoordinates<T> {
     fn get_coordinates(&self) -> (&T, &T);
@@ -71,11 +73,16 @@ pub fn generata_real_coordinate_with_model_points(model_points: &[ModelPoint;3],
     let real_w = x_rate * (coordinate.w as f32);
     let real_h = y_rate * (coordinate.h as f32);
 
-    let real_x_center = x_rate * (coordinate.x - model_points[0].coordinate.x) as f32 + real_model_points[0].x as f32;
-    let real_y_center = y_rate * (coordinate.y - model_points[0].coordinate.y) as f32 + real_model_points[0].y as f32;
+    let real_w_model_point = x_rate * (model_points[0].coordinate.w as f32);
+    let real_h_model_point = y_rate * (model_points[0].coordinate.h as f32);
+    let real_x_model_point = real_model_points[0].x as f32 - real_w_model_point/2.0;
+    let real_y_model_point = real_model_points[0].y as f32 - real_h_model_point/2.0;
 
-    let real_x = real_x_center - real_w/2.0;
-    let real_y = real_y_center - real_h/2.0;
+    let real_x = x_rate * (coordinate.x - model_points[0].coordinate.x) as f32 + real_x_model_point;
+    let real_y = y_rate * (coordinate.y - model_points[0].coordinate.y) as f32 + real_y_model_point;
+
+    // let real_x = real_x_center - (model_points[0].coordinate.w as f32 * real_w)/2.0;
+    // let real_y = real_y_center - (model_points[0].coordinate.h as f32 * real_h)/2.0;
 
     Coordinate{
         x: real_x as i32,
@@ -84,4 +91,13 @@ pub fn generata_real_coordinate_with_model_points(model_points: &[ModelPoint;3],
         h: real_h as i32
     }
     
+}
+
+pub fn calculate_page_number_match_rate(
+    blurred_img: &GrayImage,
+    coordinates: &Vec<Coordinate>,
+    fill_rates: &Vec<f32>
+) -> f32 {
+    // sum_image_pixels();
+    1.1
 }

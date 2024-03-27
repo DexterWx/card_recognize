@@ -11,6 +11,17 @@ pub struct Input1 {
     pub card_type: u8
 }
 
+impl Input1{
+    /// 过滤一些不需要的信息
+    pub fn renew(input: Self) -> Self{
+        let mut pages = Vec::new();
+        for page in input.pages{
+            pages.push(Page::renew(page));
+        }
+        Self { pages: pages, card_type: input.card_type }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Input2 {
     pub task_id: String,
@@ -20,11 +31,51 @@ pub struct Input2 {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Page {
-    pub card_columns: u8,
+    pub card_columns: u8, 
     pub model_size: ModelSize,
     pub model_points: Vec<ModelPoint>,
     pub page_number_points: Vec<PageNumberPoint>,
     pub recognizes: Vec<Recognition>,
+    pub model_points_3: Option<[ModelPoint;3]>,
+}
+
+impl Page {
+    pub fn renew(page:Self) -> Self {
+        assert!(page.model_points.len() >= 4);
+
+        let lt = page.model_points[0].clone();
+        let mut rt:ModelPoint;
+        let mut ld:ModelPoint;
+        match page.card_columns{
+            1 => {
+                rt = page.model_points[1].clone();
+                ld = page.model_points[4].clone();
+            }
+            2 => {
+                rt = page.model_points[2].clone();
+                ld = page.model_points[6].clone();
+            }
+            3 => {
+                rt = page.model_points[3].clone();
+                ld = page.model_points[8].clone();
+            }
+            4 => {
+                rt = page.model_points[4].clone();
+                ld = page.model_points[10].clone();
+            }
+            _ => {
+                panic!("Unhandled card_columns value: {}", page.card_columns);
+            }
+        }
+        Self {
+            card_columns:page.card_columns,
+            model_size:page.model_size,
+            model_points:page.model_points,
+            page_number_points:page.page_number_points,
+            recognizes:page.recognizes,
+            model_points_3:Some([lt, rt, ld]),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -33,13 +84,13 @@ pub struct ModelSize {
     pub h: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModelPoint {
     pub point_type: u8,
     pub coordinate: Coordinate,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone )]
 pub struct Coordinate {
     pub x: i32,
     pub y: i32,
