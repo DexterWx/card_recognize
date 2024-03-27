@@ -6,12 +6,12 @@ use serde::{Serialize, Deserialize};
 
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Input1 {
+pub struct InputScan {
     pub pages: Vec<Page>,
     pub card_type: u8
 }
 
-impl Input1{
+impl InputScan{
     /// 过滤一些不需要的信息
     pub fn renew(input: Self) -> Self{
         let mut pages = Vec::new();
@@ -23,7 +23,7 @@ impl Input1{
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Input2 {
+pub struct InputImage {
     pub task_id: String,
     pub images: Vec<String>,
     pub calling_type: Option<u8>,
@@ -36,7 +36,7 @@ pub struct Page {
     pub model_points: Vec<ModelPoint>,
     pub page_number_points: Vec<PageNumberPoint>,
     pub recognizes: Vec<Recognition>,
-    pub model_points_3: Option<[ModelPoint;3]>,
+    pub model_points_4: Option<[ModelPoint;4]>,
 }
 
 impl Page {
@@ -44,6 +44,7 @@ impl Page {
         assert!(page.model_points.len() >= 4);
 
         let lt = page.model_points[0].clone();
+        let rd = page.model_points[page.model_points.len() - 1].clone();
         let mut rt:ModelPoint;
         let mut ld:ModelPoint;
         match page.card_columns{
@@ -73,12 +74,12 @@ impl Page {
             model_points:page.model_points,
             page_number_points:page.page_number_points,
             recognizes:page.recognizes,
-            model_points_3:Some([lt, rt, ld]),
+            model_points_4:Some([lt, rt, ld, rd]),
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct ModelSize {
     pub w: i32,
     pub h: i32,
@@ -90,7 +91,7 @@ pub struct ModelPoint {
     pub coordinate: Coordinate,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone )]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct Coordinate {
     pub x: i32,
     pub y: i32,
@@ -98,7 +99,7 @@ pub struct Coordinate {
     pub h: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct PageNumberPoint {
     pub fill_rate: f32,
     pub coordinate: Coordinate,

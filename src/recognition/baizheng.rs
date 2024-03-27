@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 
 use image::{DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb, RgbImage, Rgba};
+use imageproc::drawing::{draw_filled_circle, draw_filled_circle_mut};
 use imageproc::filter::{gaussian_blur_f32,median_filter};
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use imageproc::morphology::{erode, dilate};
@@ -9,10 +10,11 @@ use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
 use imageproc::rect::Rect;
 
-use crate::models::engine_rec::RecInfoBaizheng;
-use crate::models::scan_json::Coordinate;
+use crate::models::engine_rec::{ProcessedImages, RecInfoBaizheng};
+use crate::models::scan_json::{Coordinate, ModelSize};
 use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
+use crate::my_utils::io::compatible_path_format;
 use crate::recognition::engine::Engine;
 use crate::config::CONFIG;
 
@@ -34,35 +36,11 @@ use crate::config::CONFIG;
 
 /// 输入DynamicImage图片
 /// 不需要scan信息，纯靠图片寻找定位点并进行小角度摆正
-/// 输出小角度摆正图和四个定位点
-pub fn rotate_with_location(img: &DynamicImage) -> (DynamicImage, [MyPoint;4]){
-    // 将图像转换为灰度图像
-    let gray_img = img.to_luma8();
-
-    // 对灰度图像进行高斯模糊
-    let mut blurred_img = gaussian_blur_f32(&gray_img, CONFIG.image_process.gaussian_blur_sigma);
-
-    // 对模糊后的图像进行二值化
-    blurred_img.enumerate_pixels_mut().for_each(|(_, _, pixel)| {
-        if pixel[0] > CONFIG.image_process.binarization_threshold {
-            *pixel = Luma([255u8]);
-        } else {
-            *pixel = Luma([0u8]);
-        }
-    });
-
-    // 膨胀操作
-    let dilated_img = dilate(&blurred_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
-
-    // 腐蚀操作
-    let eroded_img = erode(&dilated_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
-
-    // 保存结果
-    #[cfg(debug_assertions)]
-    eroded_img.save("dev/test_data/output.jpg").expect("Failed to save image");
-
+/// 输出四个定位点并小角度摆正输入的图片
+pub fn rotate_with_location(imgs: &mut ProcessedImages) -> [MyPoint;4]{
+   
     // 查找图像中的轮廓
-    let contours: Vec<Contour<i32>> = find_contours(&eroded_img);
+    let contours: Vec<Contour<i32>> = find_contours(&imgs.morphology);
 
     #[cfg(debug_assertions)]
     println!("找到的框的数量：{}", contours.len());
@@ -74,7 +52,7 @@ pub fn rotate_with_location(img: &DynamicImage) -> (DynamicImage, [MyPoint;4]){
     let mut rd = MyPoint{x:-111111,y:-111111};
 
     for contour in contours.iter(){
-        let center = calculate_points_center(&contour.points);
+        let center = calculate_points_lt(&contour.points);
         match center {
             Some((x,y)) => {
                 if x+y<lt.x+lt.y {
@@ -100,65 +78,87 @@ pub fn rotate_with_location(img: &DynamicImage) -> (DynamicImage, [MyPoint;4]){
         }
     }
 
+    // 根据定位点计算偏转角度
     let angle_radians1 = (rt.y as f32 - lt.y as f32).atan2(rt.x as f32 - lt.x as f32);
     let angle_radians2 = (ld.y as f32 - lt.y as f32).atan2(ld.x as f32 - lt.x as f32);
 
+    // 旋转之前保存中心点
+    let center = MyPoint{x:(imgs.rgb.width()/2) as i32, y:(imgs.rgb.height()/2) as i32};
+
     // 对图像进行旋转
-    let rotated_img = rotate_about_center(&img.to_rgb8(), -angle_radians1, Interpolation::Bilinear, Rgb([255,255,255]));
-    // 保存结果
+    rotate_processed_image(imgs, -angle_radians1);
+
     #[cfg(debug_assertions)]
-    rotated_img.save("dev/test_data/output_rotate.jpg").expect("Failed to save image");
-    // 旋转定位点
-    let center = MyPoint{x:(img.width()/2) as i32, y:(img.height()/2) as i32};
+    imgs.morphology.save("dev/test_data/output_mor.jpg").expect("Failed to save image");
 
-    let (new_x, new_y) = rotate_point(lt, &center, -angle_radians1);
-    let lt = MyPoint{x:new_x, y:new_y};
+    // 对定位点进行旋转
+    let mut points: [MyPoint;4] = [MyPoint{x:0,y:0};4];
+    for (i,point) in [lt, rt, ld, rd].iter().enumerate(){
+        let (new_x, new_y) = rotate_point(point, &center, -angle_radians1);
+        points[i] = MyPoint{x:new_x,y:new_y};
+    }
+    points
 
-    let (new_x, new_y) = rotate_point(rt, &center, -angle_radians1);
-    let rt = MyPoint{x:new_x, y:new_y};
-
-    let (new_x, new_y) = rotate_point(ld, &center, -angle_radians1);
-    let ld = MyPoint{x:new_x, y:new_y};
-
-    let (new_x, new_y) = rotate_point(rd, &center, -angle_radians1);
-    let rd = MyPoint{x:new_x, y:new_y};
-
-    let rotated_img: DynamicImage = rotated_img.into();
-    (rotated_img,[lt,rt,ld,rd])
 }
 
-/// 输入的图片已经是经过小角度摆正的图片
-/// 该函数根据页码点进行大角度摆正
-pub fn rotate_with_page_number(baizheng_info: &RecInfoBaizheng, img: &mut DynamicImage){
-    let mut img_rgb = img.to_rgb8();
+
+/// 根据wh比例绝对是否对图片进行90度旋转
+pub fn rotate_processed_image_90(model_size: &ModelSize, imgs: &mut ProcessedImages){
     // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
-    let flag_need_90 = (baizheng_info.model_size.h > baizheng_info.model_size.w) != (img.height() > img.width());
+    let flag_need_90 = (model_size.h > model_size.w) != (imgs.rgb.height() > imgs.rgb.width());
     if flag_need_90{
-        img_rgb = rotate_about_center(&img_rgb, PI/2.0, Interpolation::Bilinear, Rgb([255,255,255]));
+        rotate_processed_image(imgs, PI/2.0);
     }
-    let img = DynamicImage::from(img_rgb);
+}
+
+/// 输入的图片已经是经过小角度摆正+90度摆正的图片
+/// 该函数根据页码点进行180大角度摆正
+pub fn rotate_with_page_number(baizheng_info: &mut RecInfoBaizheng, imgs: &mut ProcessedImages){
     // 对比当前图片页码点匹配率和旋转180后页码点匹配率，选择更大匹配率作为图片的最终摆正
     // 第一次获取真实页码点框
     let mut real_page_number_coordinates: Vec<Coordinate> = Vec::new();
     let mut page_number_fill_rates = Vec::new();
-    for page_number in baizheng_info.page_number_points{
-        let real_coordinate = generata_real_coordinate_with_model_points(
-            baizheng_info.model_points, baizheng_info.real_model_points, &page_number.coordinate
+    for page_number in &baizheng_info.page_number_points{
+        let real_coordinate = generate_real_coordinate_with_model_points(
+            &baizheng_info.reference_model_points, &page_number.coordinate
         );
         page_number_fill_rates.push(page_number.fill_rate);
         real_page_number_coordinates.push(real_coordinate);
+        
     }
-    // 灰度图算填涂率
-    let mut blurred_img = img.to_luma8();
-    // 对模糊后的图像进行二值化
-    blurred_img.enumerate_pixels_mut().for_each(|(_, _, pixel)| {
-        if pixel[0] > CONFIG.image_process.binarization_threshold {
-            *pixel = Luma([255u8]);
-        } else {
-            *pixel = Luma([0u8]);
-        }
-    });
-    // img_tmp.save("dev/test_data/output_pnumber.jpg").expect("Failed to save image");
-    let first_match_rate = calculate_page_number_match_rate(&blurred_img, &real_page_number_coordinates, &page_number_fill_rates);
+    let first_difference = calculate_page_number_difference(&imgs.integral_morphology, &real_page_number_coordinates, &page_number_fill_rates);
+    println!("{first_difference}");
+
+    if first_difference <= 0.2{
+        return;
+    }
+
+    let center = MyPoint{
+        x: (imgs.rgb.width() / 2) as i32,
+        y: (imgs.rgb.height() / 2) as i32,
+    };
+
+    let (x0,y0) = rotate_point(
+        &baizheng_info.reference_model_points.real_model_points[3], &center, PI,
+    );
+    let (x1,y1) = rotate_point(
+        &baizheng_info.reference_model_points.real_model_points[2], &center, PI,
+    );
+    let (x2,y2) = rotate_point(
+        &baizheng_info.reference_model_points.real_model_points[1], &center, PI,
+    );
+    let (x3,y3) = rotate_point(
+        &baizheng_info.reference_model_points.real_model_points[0], &center, PI,
+    );
+    baizheng_info.reference_model_points.real_model_points[0] = MyPoint{x:x0,y:y0};
+    baizheng_info.reference_model_points.real_model_points[1] = MyPoint{x:x1,y:y1};
+    baizheng_info.reference_model_points.real_model_points[2] = MyPoint{x:x2,y:y2};
+    baizheng_info.reference_model_points.real_model_points[3] = MyPoint{x:x3,y:y3};
+
+    rotate_processed_image(imgs, PI);
+
+
+    // let real_model_points: Vec<MyPoint> = Vec::new();
+    // rotate_processed_image(imgs, PI);
 
 }
