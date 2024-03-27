@@ -13,7 +13,7 @@ image = "0.25"
 imageproc = "0.24"
 once_cell = "1.8.0"
 serde_yaml = "0.9.34"
-
+rxing = "0.5.8"
 
 [profile.dev]
 opt-level = 3
