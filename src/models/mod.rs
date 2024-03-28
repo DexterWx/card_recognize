@@ -3,8 +3,11 @@
 pub mod scan_json;
 mod rec_result;
 
+/// 定义常用结构体
 pub mod card{
-    #[derive(Debug,Copy, Clone)]
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
     pub struct MyPoint{
         pub x: i32, // 引擎所有坐标点均使用i32
         pub y: i32,
@@ -16,18 +19,19 @@ pub mod card{
 pub mod engine_rec{
     use image::{GrayImage, ImageBuffer, Luma, RgbImage};
 
-    use super::scan_json::{ModelSize, PageNumberPoint, ModelPoint};
+    use super::scan_json::{Coordinate, ModelPoint, ModelSize, PageNumberPoint};
     use super::card::MyPoint;
 
-    pub struct ReferenceModelPoints{
-        pub model_points: [ModelPoint;4],
-        pub real_model_points: [MyPoint;4]
-    }
     /// 大摆正所需要的信息
     pub struct RecInfoBaizheng{
         pub model_size: ModelSize,
         pub page_number_points: Vec<PageNumberPoint>,
         pub reference_model_points: ReferenceModelPoints,
+    }
+
+    pub struct ReferenceModelPoints{
+        pub model_points: [ModelPoint;4],
+        pub real_model_points: [Coordinate;4]
     }
     /// 识别需要用到的各种图片
     pub struct ProcessedImages{

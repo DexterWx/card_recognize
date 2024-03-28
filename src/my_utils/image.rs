@@ -1,16 +1,16 @@
-use std::ops::{Add, Div, Mul, MulAssign, Sub};
-use image::{DynamicImage, GrayImage, ImageBuffer, Luma, Rgb, RgbImage};
+use image::{ImageBuffer, Luma, Rgb};
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
-use imageproc::local_binary_patterns::count_transitions;
 use imageproc::morphology::{dilate, erode};
 use imageproc::{filter::gaussian_blur_f32, point::Point};
 use imageproc::integral_image::{integral_image, sum_image_pixels};
 
 use crate::models::engine_rec::{ProcessedImages, ReferenceModelPoints};
-use crate::{config::CONFIG, models::{card::MyPoint, scan_json::{Coordinate, ModelPoint}}};
+use crate::models::scan_json::ModelSize;
+use crate::{config::CONFIG, models::{card::MyPoint, scan_json::Coordinate}};
+use super::math::*;
 
-trait HasCoordinates<T> {
+pub trait HasCoordinates<T> {
     fn get_coordinates(&self) -> (&T, &T);
 }
 // 定义一个宏来为多个类型实现 HasCoordinates trait
@@ -49,8 +49,8 @@ where
     // 将坐标总和除以点的数量，得到中心点的坐标
     let num_points = points.len() as i32;
     // let num_points_k = K::from(num_points);
-    let mut center_x: i32 = center_x.into();
-    let mut center_y: i32 = center_y.into();
+    let center_x: i32 = center_x.into();
+    let center_y: i32 = center_y.into();
     let center_x = center_x / num_points;
     let center_y = center_y / num_points;
 
@@ -58,8 +58,8 @@ where
 }
 
 
-/// 计算一组点的左上
-pub fn calculate_points_lt<T, K>(points: &[T]) -> Option<(i32, i32)>
+/// 计算一组点的左上,右上,左下
+pub fn calculate_points_lt_rt_ld<T, K>(points: &[T]) -> Option<[MyPoint;3]>
 where
     T: HasCoordinates<K>,
     K: Default + Copy + Into<i32> + From<i32>,
@@ -68,27 +68,88 @@ where
         return None;
     }
 
-    // 初始化左上的坐标
+    // 初始化三点的坐标
     let mut lt_x = i32::default();
     let mut lt_y = i32::default();
 
-    let mut minxy = 111111 as i32;
+    let mut rt_x = i32::default();
+    let mut rt_y = i32::default();
 
-    // 找到最小点
+    let mut ld_x = i32::default();
+    let mut ld_y = i32::default();
+
+    let mut min_x_add_y = 111111 as i32;
+    let mut max_x_sub_y = -111111 as i32;
+    let mut min_x_sub_y = 111111 as i32;
+
+    // 找到三个最值点
     for point in points {
         let (x, y) = point.get_coordinates();
         let x:i32 = (*x).into();
         let y:i32 = (*y).into();
-        if x + y < minxy {
+        if x + y < min_x_add_y {
             lt_x = x;
             lt_y = y;
-            minxy = x+y;
+            min_x_add_y = x+y;
+        }
+        if x - y > max_x_sub_y {
+            rt_x = x;
+            rt_y = y;
+            max_x_sub_y = x-y;
+        }
+        if x - y < min_x_sub_y {
+            ld_x = x;
+            ld_y = y;
+            min_x_sub_y = x-y;
         }
     }
 
-    Some((lt_x, lt_y))
+    Some(
+        [
+            MyPoint{x:lt_x,y:lt_y},
+            MyPoint{x:rt_x,y:rt_y},
+            MyPoint{x:ld_x,y:ld_y},
+        ]
+    )
 }
 
+/// 计算一组矩形边缘点的宽高
+pub fn calculate_points_wh<T, K>(points: &[T]) -> Option<(i32, i32)>
+where
+    T: HasCoordinates<K>,
+    K: Default + Copy + Into<i32> + From<i32> + std::cmp::PartialOrd,
+{
+    if points.is_empty() {
+        return None;
+    }
+
+    let mut minx:K = K::from(11111);
+    let mut maxx:K = K::from(0);
+    let mut miny:K = K::from(11111);
+    let mut maxy:K = K::from(0);
+    for point in points{
+        let (x, y) = point.get_coordinates();
+        if *x>maxx{
+            maxx = *x;
+        }
+        if *x<minx{
+            minx = *x;
+        }
+        if *y>maxy{
+            maxy = *y;
+        }
+        if *y<miny{
+            miny = *y;
+        }
+
+    }
+    let maxx:i32= maxx.into();
+    let maxy:i32= maxy.into();
+    let minx:i32= minx.into();
+    let miny:i32= miny.into();
+
+    Some((maxx-minx, maxy-miny))
+}
 
 /// 根据给定的中心点center按角度angle_rad顺时针旋转
 pub fn rotate_point(point: &MyPoint, center: &MyPoint, angle_rad: f32) -> (i32, i32)
@@ -104,6 +165,7 @@ pub fn rotate_point(point: &MyPoint, center: &MyPoint, angle_rad: f32) -> (i32, 
     (rotated_x as i32, rotated_y as i32)
 }
 
+/// 参照定位点得到标注coodinate对应的真实coordinate
 pub fn generate_real_coordinate_with_model_points(reference_model_points: &ReferenceModelPoints, coordinate: &Coordinate) -> Coordinate{
     let model_points = &reference_model_points.model_points;
     let real_model_points = &reference_model_points.real_model_points;
@@ -128,8 +190,16 @@ pub fn generate_real_coordinate_with_model_points(reference_model_points: &Refer
     
 }
 
-pub fn process_image(img_path: String) -> ProcessedImages {
-    let img = image::open(img_path).expect("Failed to open image file");
+/// 处理图片，返回图片预处理过程每一步中间图
+/// 并根据长宽比例完成图片的90度翻转
+pub fn process_image(model_size: &ModelSize, img_path: String) -> ProcessedImages {
+    let mut img = image::open(img_path).expect("Failed to open image file");
+    // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
+    let flag_need_90 = (model_size.h > model_size.w) != (img.height() > img.width());
+    if flag_need_90{
+        img = img.rotate90();
+    };
+    
     let rgb_img = img.to_rgb8();
     let gray_img = img.to_luma8();
     // 对灰度图像进行高斯模糊
@@ -159,6 +229,7 @@ pub fn process_image(img_path: String) -> ProcessedImages {
     }
 }
 
+/// 旋转ProcessedImages
 pub fn rotate_processed_image(imgs: &mut ProcessedImages, angle_radians: f32){
     imgs.rgb = rotate_about_center(&imgs.rgb, angle_radians, Interpolation::Bilinear, Rgb([255,255,255]));
     imgs.gray = rotate_about_center(&imgs.gray, angle_radians, Interpolation::Bilinear, Luma([255]));
@@ -167,14 +238,14 @@ pub fn rotate_processed_image(imgs: &mut ProcessedImages, angle_radians: f32){
     imgs.integral_morphology = integral_image(&imgs.morphology);
 }
 
-
+/// 计算页码点标注填涂率和真实填涂率的距离
 pub fn calculate_page_number_difference(
     integral_img: &ImageBuffer<Luma<i64>, Vec<i64>>,
     coordinates: &Vec<Coordinate>,
     fill_rates: &Vec<f32>
 ) -> f32 {
     let mut real_fill_rates: Vec<f32> = Vec::new();
-    for (coordinate,fill_rate) in coordinates.iter().zip(fill_rates.iter()){
+    for coordinate in coordinates.iter(){
         let sum_pixel = sum_image_pixels(
             integral_img,
             coordinate.x as u32,
@@ -188,18 +259,4 @@ pub fn calculate_page_number_difference(
     }
 
     mean_absolute_difference(&fill_rates, &real_fill_rates)
-}
-
-pub fn cosine_similarity(vec1: &[f32], vec2: &[f32]) -> f32 {
-    let dot_product = vec1.iter().zip(vec2.iter()).map(|(&a, &b)| a * b).sum::<f32>();
-    let magnitude1 = (vec1.iter().map(|&x| x * x).sum::<f32>()).sqrt();
-    let magnitude2 = (vec2.iter().map(|&x| x * x).sum::<f32>()).sqrt();
-
-    dot_product / (magnitude1 * magnitude2)
-}
-
-pub fn mean_absolute_difference(vec1: &[f32], vec2: &[f32]) -> f32 {
-    let n = vec1.len() as f32;
-    let sum_absolute_difference: f32 = vec1.iter().zip(vec2.iter()).map(|(&a, &b)| (a - b).abs()).sum();
-    sum_absolute_difference / n
 }

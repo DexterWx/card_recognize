@@ -11,10 +11,18 @@ pub struct ImageProcess {
     pub morphology_kernel: u8
 }
 
+/// 图片摆正处理参数
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ImageBaizheng {
+    pub page_number_diff: f32,
+    pub model_point_wh_cosine_similarity: f32
+}
+
 /// 配置参数
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     pub image_process: ImageProcess,
+    pub image_baizheng: ImageBaizheng,
     // 其他配置参数
 }
 
