@@ -44,6 +44,7 @@ pub fn rotate_with_location(imgs: &mut ProcessedImages, location_wh: (i32, i32))
         let [lt_box, rt_box, ld_box] = calculate_points_lt_rt_ld(&contour.points).unwrap();
         let w = euclidean_distance((lt_box.x as f32,lt_box.y as f32), (rt_box.x as f32,rt_box.y as f32)) as i32;
         let h = euclidean_distance((lt_box.x as f32,lt_box.y as f32), (ld_box.x as f32,ld_box.y as f32)) as i32;
+        // 过滤影响定位点选择的框框，余弦相似度如果不够大说明不是定位点。
         if CONFIG.image_baizheng.model_point_wh_cosine_similarity > cosine_similarity(&vec![w as f32,h as f32], &vec![location_wh.0 as f32, location_wh.1 as f32]) {
             continue
         }

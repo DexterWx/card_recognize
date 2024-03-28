@@ -1,4 +1,4 @@
-use image::{DynamicImage, ImageBuffer, Luma, Rgb};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Rgb};
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use imageproc::morphology::{dilate, erode};
