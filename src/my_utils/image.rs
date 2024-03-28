@@ -1,4 +1,4 @@
-use image::{ImageBuffer, Luma, Rgb};
+use image::{DynamicImage, ImageBuffer, Luma, Rgb};
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use imageproc::morphology::{dilate, erode};
@@ -7,7 +7,7 @@ use imageproc::integral_image::{integral_image, sum_image_pixels};
 
 use crate::models::engine_rec::{ProcessedImages, ReferenceModelPoints};
 use crate::models::scan_json::ModelSize;
-use crate::{config::CONFIG, models::{card::MyPoint, scan_json::Coordinate}};
+use crate::{config::CONFIG, models::{card::MyPoint, scan_json::{Coordinate,ModelPoint}}};
 use super::math::*;
 
 pub trait HasCoordinates<T> {
@@ -259,4 +259,12 @@ pub fn calculate_page_number_difference(
     }
 
     mean_absolute_difference(&fill_rates, &real_fill_rates)
+}
+
+/**
+ * 截取图像
+ */
+pub fn crop_image(image: &mut DynamicImage, coor: Coordinate) -> DynamicImage {
+    let crop = image.crop(coor.x as u32, coor.y as u32, coor.w as u32, coor.h as u32);
+    crop
 }
