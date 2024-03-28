@@ -10,6 +10,14 @@ use image::DynamicImage;
 use crate::recognition::engine::Engine;
 use crate::models::scan_json::Coordinate;
 use crate::my_utils::image::crop_image;
+
+/*
+https://klximg.oss-cn-beijing.aliyuncs.com/scan-hb/024110/78d5e89231cc2d86e416353ae8d11a69.jpg
+https://klximg.oss-cn-beijing.aliyuncs.com/scan-hb/024110/acea4aee0fcd516ddeea3c6984190790.jpg
+https://klximg.oss-cn-beijing.aliyuncs.com/scan-hb/024110/8114d815a48dd733058ffaaaf5991fec.jpg
+https://klximg.oss-cn-beijing.aliyuncs.com/scan-hb/024110/d7215de8146ca90abb46a4942a97ff24.jpg
+https://klximg.oss-cn-beijing.aliyuncs.com/scan-hb/024110/ac0d822d80200630d655ec8cfa82e4d0.jpg
+*/
 pub fn decode_barcode(img: &DynamicImage, coor: Coordinate) -> Option<&str> {
     let multi_format_reader = MultiUseMultiFormatReader::default();
     let mut scanner = GenericMultipleBarcodeReader::new(multi_format_reader);
