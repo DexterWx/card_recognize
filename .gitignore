@@ -2,3 +2,5 @@
 /*.jpg
 /*.png
 /dev/test_data/
+.idea
+.vscode
