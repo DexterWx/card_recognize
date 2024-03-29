@@ -10,7 +10,7 @@ use std::fs::File;
 use std::io::Read;
 
 use models::scan_json::InputScan;
-use recognition::baizheng::rotate_with_location;
+use recognition::baizheng::generate_location_and_rotate;
 use config::CONFIG;
 
 #[cfg(test)]
@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn test_sum_pix(){
-        use crate::recognition::baizheng::{rotate_with_location,rotate_with_page_number};
+        use crate::recognition::baizheng::{generate_location_and_rotate,match_page_and_generate_rotate180_image};
         use crate::my_utils::image::process_image;
 
         let scan_path = compatible_path_format("dev/test_data/cards/194144/scan.json");
@@ -84,7 +84,7 @@ mod tests {
             input_scan.pages[0].model_points[0].coordinate.w,
             input_scan.pages[0].model_points[0].coordinate.h
         );
-        let real_model_points = rotate_with_location(&mut processed_imgs, wh);
+        let real_model_points = generate_location_and_rotate(&mut processed_imgs, wh);
         processed_imgs.rgb.save(compatible_path_format("dev/test_data/output1.jpg")).expect("Failed to save image");
         let mut baizheng_info = RecInfoBaizheng{
             model_size: input_scan.pages[0].model_size,
@@ -94,7 +94,7 @@ mod tests {
                 real_model_points: real_model_points,
             }
         };
-        rotate_with_page_number(&mut baizheng_info, &mut processed_imgs);
+        match_page_and_generate_rotate180_image(&mut baizheng_info, &mut processed_imgs);
         processed_imgs.rgb.save(compatible_path_format("dev/test_data/output2.jpg")).expect("Failed to save image");
     }
 

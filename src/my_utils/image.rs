@@ -212,7 +212,7 @@ pub fn process_image(model_size: &ModelSize, img_path: String) -> ProcessedImage
             *pixel = Luma([0u8]);
         }
     });
-     // 膨胀操作
+    // 膨胀操作
     let dilated_img = dilate(&blurred_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
     // 腐蚀操作
     let eroded_img = erode(&dilated_img, Norm::LInf, CONFIG.image_process.morphology_kernel);

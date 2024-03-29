@@ -20,20 +20,23 @@ pub mod engine_rec{
     use image::{GrayImage, ImageBuffer, Luma, RgbImage};
 
     use super::scan_json::{Coordinate, ModelPoint, ModelSize, PageNumberPoint};
-    use super::card::MyPoint;
 
     /// 大摆正所需要的信息
-    pub struct RecInfoBaizheng{
-        pub model_size: ModelSize,
-        pub page_number_points: Vec<PageNumberPoint>,
-        pub reference_model_points: ReferenceModelPoints,
+    // 只需要引用不可以修改
+    pub struct RecInfoBaizheng<'a>{
+        pub model_size: &'a ModelSize,
+        pub model_points: &'a [ModelPoint;4],
+        pub page_number_points: &'a Vec<PageNumberPoint>
     }
 
-    pub struct ReferenceModelPoints{
-        pub model_points: [ModelPoint;4],
-        pub real_model_points: [Coordinate;4]
+    /// 标注定位点和实际定位点，用来参照计算其他标注框的真实坐标
+    pub struct ReferenceModelPoints<'a>{
+        pub model_points: &'a [ModelPoint;4],
+        pub real_model_points: &'a [Coordinate;4]
     }
+
     /// 识别需要用到的各种图片
+    #[derive(Clone)]
     pub struct ProcessedImages{
         /// 原始rgb图
         pub rgb: RgbImage,
@@ -45,6 +48,12 @@ pub mod engine_rec{
         pub integral_gray: ImageBuffer<Luma<i64>, Vec<i64>>,
         /// 形态学处理积分图，用来求区域像素值总和
         pub integral_morphology: ImageBuffer<Luma<i64>, Vec<i64>>
+    }
+
+    #[derive(Clone)]
+    pub struct ProcessedImagesAndModelPoints{
+        pub img: ProcessedImages,
+        pub real_model_points: [Coordinate;4]
     }
 }
 
