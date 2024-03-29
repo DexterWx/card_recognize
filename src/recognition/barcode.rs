@@ -10,7 +10,7 @@ use image::DynamicImage;
 use crate::recognition::engine::Engine;
 use crate::models::scan_json::Coordinate;
 use crate::my_utils::image::crop_image;
-pub fn decode_barcode(img: &mut DynamicImage, coor: Coordinate) -> Option<String> {
+pub fn decode_barcode(img: &DynamicImage, coor: Coordinate) -> Option<String> {
     let multi_format_reader = MultiUseMultiFormatReader::default();
     let mut scanner = GenericMultipleBarcodeReader::new(multi_format_reader);
     let mut hints = HashMap::new();
