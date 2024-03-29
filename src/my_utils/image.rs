@@ -1,4 +1,4 @@
-use image::{DynamicImage, ImageBuffer, Luma, Rgb};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Rgb};
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use imageproc::morphology::{dilate, erode};
@@ -264,7 +264,6 @@ pub fn calculate_page_number_difference(
 /**
  * 截取图像
  */
-pub fn crop_image(image: &mut DynamicImage, coor: Coordinate) -> DynamicImage {
-    let crop = image.crop(coor.x as u32, coor.y as u32, coor.w as u32, coor.h as u32);
-    crop
+pub fn crop_image(image: &DynamicImage, coor: Coordinate) -> DynamicImage {
+    image.crop_imm(coor.x as u32, coor.y as u32, coor.w as u32, coor.h as u32)
 }
