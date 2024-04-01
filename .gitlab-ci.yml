@@ -1,0 +1,9 @@
+stages:
+  - build
+
+rust-1.76.0:
+  stage: build
+  image: rust:1.76.0
+  script:
+    - cargo build --verbose
+    - cargo test --verbose
