@@ -1,9 +1,10 @@
+image: registry.17zuoye.net:5000/card/rust:latest
+
 stages:
-  - build
+  - test
 
 rust-1.76.0:
-  stage: build
-  image: rust:1.76.0
+  stage: test
   script:
-    - cargo build --verbose
-    - cargo test --verbose
+    - cargo test
+  allow_failure: false
