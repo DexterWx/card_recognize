@@ -6,6 +6,7 @@
 ## 开发环境配置
 
 1. 安装rust：
+
     ```shell
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     rustup install 1.76.0

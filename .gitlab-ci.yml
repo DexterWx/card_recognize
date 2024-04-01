@@ -6,5 +6,6 @@ stages:
 rust-1.76.0:
   stage: test
   script:
+    - rustc -V
     - cargo test
   allow_failure: false
