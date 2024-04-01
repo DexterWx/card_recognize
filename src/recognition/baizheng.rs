@@ -10,6 +10,7 @@ use imageproc::contours::Contour;
 use crate::models::engine_rec::ProcessedImages;
 use crate::models::engine_rec::ReferenceModelPoints;
 use crate::models::engine_rec::{ProcessedImagesAndModelPoints, RecInfoBaizheng};
+use crate::models::scan_json::InputImage;
 use crate::models::scan_json::PageNumberPoint;
 use crate::models::scan_json::{Coordinate, ModelSize};
 use crate::my_utils::image::*;
@@ -20,14 +21,20 @@ use crate::config::CONFIG;
 use super::engine::Engine;
 
 pub trait Baizheng{
-    fn baizheng_and_match_page(&self, imgs: &Vec<ProcessedImages>) -> Vec<Option<ProcessedImagesAndModelPoints>>;
+    fn baizheng_and_match_page(&self, input_images: &InputImage) -> Vec<Option<ProcessedImagesAndModelPoints>>;
 }
 
 
 impl Baizheng for Engine {
     /// 输入的图片已经是经过小角度摆正的图片
     /// 输出对应page位置的图片，未匹配的使用None
-    fn baizheng_and_match_page(&self, imgs: &Vec<ProcessedImages>) -> Vec<Option<ProcessedImagesAndModelPoints>>{
+    fn baizheng_and_match_page(&self, input_images: &InputImage) -> Vec<Option<ProcessedImagesAndModelPoints>>{
+        // 读图+处理成ProcessedImages，包含各种预处理的图片
+        let mut imgs: Vec<ProcessedImages> = Vec::new();
+        for img_path in &input_images.images{
+            let img = process_image(&self.get_scan_data().pages[0].model_size, img_path.to_string());
+            imgs.push(img);
+        }
         // 获取定位点wh，用于筛选定位点
         // todo: 后期可以抽象一下，目前只想到这一个
         let location_wh = (
@@ -38,15 +45,14 @@ impl Baizheng for Engine {
         // 并根据定位点进行小角度摆正
         // 将img和定位点组成后续公用的图结构ProcessedImagesAndModelPoints
         let mut imgs_and_model_points = Vec::new();
-        for img in imgs{
-            let mut img = img.clone();
+        for mut img in imgs{
             let coordinates = generate_location_and_rotate(&mut img, location_wh);
             imgs_and_model_points.push(
                 ProcessedImagesAndModelPoints{
                     img: img,
                     real_model_points: coordinates,
                 }
-            )
+            );
         }
         // 生成每个图结构的旋转180副本
         let mut imgs_and_model_points_contains_180 = Vec::new();
@@ -63,7 +69,7 @@ impl Baizheng for Engine {
         let mut processed_images_res: Vec<Option<ProcessedImagesAndModelPoints>> = vec![None;scan_size];
 
         for (index,page) in self.get_scan_data().pages.iter().enumerate(){
-            for img_and_model_points in imgs_and_model_points_contains_180{
+            for img_and_model_points in &imgs_and_model_points_contains_180{
                 let match_info = RecInfoBaizheng{
                     model_size: &page.model_size,
                     page_number_points: &page.page_number_points,
@@ -81,11 +87,11 @@ impl Baizheng for Engine {
 }
 
 /// 根据wh比例决定是否对图片进行90度旋转
-pub fn rotate_processed_image_90(model_size: &ModelSize, imgs: &mut ProcessedImages){
+pub fn rotate_processed_image_90(model_size: &ModelSize, img: &mut ProcessedImages){
     // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
-    let flag_need_90 = (model_size.h > model_size.w) != (imgs.rgb.height() > imgs.rgb.width());
+    let flag_need_90 = (model_size.h > model_size.w) != (img.rgb.height() > img.rgb.width());
     if flag_need_90{
-        rotate_processed_image(imgs, PI/2.0);
+        rotate_processed_image(img, PI/2.0);
     }
 }
 
@@ -94,11 +100,16 @@ pub fn rotate_processed_image_90(model_size: &ModelSize, imgs: &mut ProcessedIma
 /// 靠图片寻找定位点并进行小角度摆正
 /// 输出四个定位点并小角度摆正输入的图片
 fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i32)) -> [Coordinate;4]{
-   
+    // todo: 定位点过滤补丁，后面需要优化
+    let w = img.rgb.width();
+    let lt_x_must_less = ((w as f32) / (4 as f32)) as i32;
+    let rd_x_must_more = ((w as f32) / (4 as f32) * 3.0) as i32;
+
     // 查找图像中的轮廓
     let contours: Vec<Contour<i32>> = find_contours(&img.morphology);
 
     // 寻找四个定位点 x+y足够小、x-y足够大、x-y足够小、x+y足够大
+    // todo：有的答题卡的考号在左上角会影响寻找左上角定位点
     let mut lt = Coordinate{x:111111,y:111111,w:0,h:0};
     let mut rt = Coordinate{x:-111111,y:111111,w:0,h:0};
     let mut ld = Coordinate{x:111111,y:-111111,w:0,h:0};
@@ -115,7 +126,11 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         let x = lt_box.x;
         let y = lt_box.y;
         
-        if x+y<lt.x+lt.y {
+        // 因为左上和右下定位点会受到考号影响，所以加一些限制
+        // 左上的y一定要是全局最小可以过滤掉考号
+        // x在1/4内可以过滤第一行中其他定位点的干扰
+        // 因为图片有可能是180旋转的，所以右下同理
+        if y<lt.y && x<lt_x_must_less{
             lt.x = x;
             lt.y = y;
             lt.w = w;
@@ -133,7 +148,7 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
             ld.w = w;
             ld.h = h;
         }
-        if x+y>rd.x+rd.y {
+        if y>rd.y && x>rd_x_must_more {
             rd.x = x;
             rd.y = y;
             rd.w = w;
@@ -141,7 +156,21 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         }
     }
 
+    // println!("{lt:?}");
+    // println!("{rt:?}");
+    // println!("{ld:?}");
+    // println!("{rd:?}");
+    // let mut image = img.rgb.clone();
+    // draw_filled_circle_mut(&mut image, (lt.x,lt.y), 5, Rgb([0,0,255]));
+    // draw_filled_circle_mut(&mut image, (rt.x,rt.y), 5, Rgb([0,0,255]));
+    // draw_filled_circle_mut(&mut image, (ld.x,ld.y), 5, Rgb([0,0,255]));
+    // draw_filled_circle_mut(&mut image, (rd.x,rd.y), 5, Rgb([0,0,255]));
+    // image.save("dev/test_data/output_view_location.jpg");
+
     // 根据定位点计算偏转角度
+    // todo: 如果答题卡被折过，这种方法会有误差。
+    // 后面可以增加一种对定位点位置的判断，猜测纸张是否可能被折过
+    // 如果被折过，使用左侧两点后右侧两点分别对办张图片摆正，两边的框分开定位。
     let angle_radians1 = (rt.y as f32 - lt.y as f32).atan2(rt.x as f32 - lt.x as f32);
     // let angle_radians2 = (ld.y as f32 - lt.y as f32).atan2(ld.x as f32 - lt.x as f32);
 
@@ -177,7 +206,13 @@ fn match_page_and_img(
         },
         &img_and_model_points.img.integral_morphology
     );
+
     // 距离足够小说明匹配成功
+    #[cfg(debug_assertions)]
+    {
+        println!("{diff}");
+    }
+    // todo：匹配率作为报错信息返回
     if diff <= CONFIG.image_baizheng.page_number_diff{
         return true;
     }

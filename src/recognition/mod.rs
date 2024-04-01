@@ -5,5 +5,5 @@ pub mod baizheng;
 mod black_fill;
 mod numbers;
 mod vx;
-mod engine;
+pub mod engine;
 mod barcode;

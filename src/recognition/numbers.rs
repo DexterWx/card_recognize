@@ -1,16 +1,13 @@
-use image::DynamicImage;
-
-use crate::recognition::engine::Engine;
+use crate::{models::{engine_rec::ProcessedImages, rec_result::Value, scan_json::Coordinate}, recognition::engine::Engine};
 
 
 pub trait RecNumber{
     /// 数字识别
-    fn rec_number<T, D>(&self, toinfo: T, img: &DynamicImage) -> D;
+    fn rec_number(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
 }
 
 impl RecNumber for Engine {
-    fn rec_number<T, D>(&self, toinfo: T, img: &DynamicImage) -> D {
-        
-        unimplemented!()
+    fn rec_number(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value> {
+        None
     }
 }

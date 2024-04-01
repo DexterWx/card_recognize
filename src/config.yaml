@@ -3,6 +3,14 @@ image_process:
   binarization_threshold: 180
   morphology_kernel: 5
 image_baizheng:
-  page_number_diff: 0.2
+  page_number_diff: 0.21
   model_point_wh_cosine_similarity: 0.985
+recognize_type:
+  black_fill: 1
+  vx: 2
+  number: 3
+  qrcode: 4
+  barcode: 5
+  coordinate: 6
+
   

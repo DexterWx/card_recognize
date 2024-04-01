@@ -18,11 +18,23 @@ pub struct ImageBaizheng {
     pub model_point_wh_cosine_similarity: f32
 }
 
+/// 识别类型参数
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RecognitionType {
+    pub coordinate: u8,
+    pub barcode: u8,
+    pub black_fill: u8,
+    pub number: u8,
+    pub vx: u8,
+    pub qrcode: u8
+}
+
 /// 配置参数
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     pub image_process: ImageProcess,
     pub image_baizheng: ImageBaizheng,
+    pub recognize_type: RecognitionType,
     // 其他配置参数
 }
 

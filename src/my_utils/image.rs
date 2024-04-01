@@ -1,4 +1,4 @@
-use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Rgb};
+use image::{DynamicImage, ImageBuffer, Luma, Rgb};
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use imageproc::morphology::{dilate, erode};
@@ -7,7 +7,7 @@ use imageproc::integral_image::{integral_image, sum_image_pixels};
 
 use crate::models::engine_rec::{ProcessedImages, ReferenceModelPoints};
 use crate::models::scan_json::ModelSize;
-use crate::{config::CONFIG, models::{card::MyPoint, scan_json::{Coordinate,ModelPoint}}};
+use crate::{config::CONFIG, models::{card::MyPoint, scan_json::Coordinate}};
 use super::math::*;
 
 pub trait HasCoordinates<T> {
@@ -230,12 +230,12 @@ pub fn process_image(model_size: &ModelSize, img_path: String) -> ProcessedImage
 }
 
 /// 旋转ProcessedImages
-pub fn rotate_processed_image(imgs: &mut ProcessedImages, angle_radians: f32){
-    imgs.rgb = rotate_about_center(&imgs.rgb, angle_radians, Interpolation::Bilinear, Rgb([255,255,255]));
-    imgs.gray = rotate_about_center(&imgs.gray, angle_radians, Interpolation::Bilinear, Luma([255]));
-    imgs.morphology = rotate_about_center(&imgs.morphology, angle_radians, Interpolation::Bilinear, Luma([255]));
-    imgs.integral_gray = integral_image(&imgs.gray);
-    imgs.integral_morphology = integral_image(&imgs.morphology);
+pub fn rotate_processed_image(img: &mut ProcessedImages, angle_radians: f32){
+    img.rgb = rotate_about_center(&img.rgb, angle_radians, Interpolation::Bilinear, Rgb([255,255,255]));
+    img.gray = rotate_about_center(&img.gray, angle_radians, Interpolation::Bilinear, Luma([255]));
+    img.morphology = rotate_about_center(&img.morphology, angle_radians, Interpolation::Bilinear, Luma([255]));
+    img.integral_gray = integral_image(&img.gray);
+    img.integral_morphology = integral_image(&img.morphology);
 }
 
 /// 计算页码点标注填涂率和真实填涂率的距离

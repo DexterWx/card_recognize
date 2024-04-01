@@ -1,7 +1,7 @@
 //! 定义输入输出和公用结构体
 
 pub mod scan_json;
-mod rec_result;
+pub mod rec_result;
 
 /// 定义常用结构体
 pub mod card{
@@ -22,7 +22,6 @@ pub mod engine_rec{
     use super::scan_json::{Coordinate, ModelPoint, ModelSize, PageNumberPoint};
 
     /// 大摆正所需要的信息
-    // 只需要引用不可以修改
     pub struct RecInfoBaizheng<'a>{
         pub model_size: &'a ModelSize,
         pub model_points: &'a [ModelPoint;4],

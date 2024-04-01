@@ -11,17 +11,6 @@ pub struct InputScan {
     pub card_type: u8
 }
 
-impl InputScan{
-    /// 过滤一些不需要的信息
-    pub fn renew(input: Self) -> Self{
-        let mut pages = Vec::new();
-        for page in input.pages{
-            pages.push(Page::renew(page));
-        }
-        Self { pages: pages, card_type: input.card_type }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InputImage {
     pub task_id: String,
@@ -39,53 +28,13 @@ pub struct Page {
     pub model_points_4: Option<[ModelPoint;4]>,
 }
 
-impl Page {
-    pub fn renew(page:Self) -> Self {
-        assert!(page.model_points.len() >= 4);
-
-        let lt = page.model_points[0].clone();
-        let rd = page.model_points[page.model_points.len() - 1].clone();
-        let mut rt:ModelPoint;
-        let mut ld:ModelPoint;
-        match page.card_columns{
-            1 => {
-                rt = page.model_points[1].clone();
-                ld = page.model_points[4].clone();
-            }
-            2 => {
-                rt = page.model_points[2].clone();
-                ld = page.model_points[6].clone();
-            }
-            3 => {
-                rt = page.model_points[3].clone();
-                ld = page.model_points[8].clone();
-            }
-            4 => {
-                rt = page.model_points[4].clone();
-                ld = page.model_points[10].clone();
-            }
-            _ => {
-                panic!("Unhandled card_columns value: {}", page.card_columns);
-            }
-        }
-        Self {
-            card_columns:page.card_columns,
-            model_size:page.model_size,
-            model_points:page.model_points,
-            page_number_points:page.page_number_points,
-            recognizes:page.recognizes,
-            model_points_4:Some([lt, rt, ld, rd]),
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct ModelSize {
     pub w: i32,
     pub h: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct ModelPoint {
     pub point_type: u8,
     pub coordinate: Coordinate,
@@ -105,23 +54,75 @@ pub struct PageNumberPoint {
     pub coordinate: Coordinate,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Recognition {
     pub rec_id: String,
     pub rec_type: u8,
     pub options: Vec<Item>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Item {
     pub value: Option<Value>, // Assuming value can be a string for all types
     pub coordinate: Coordinate,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)] // Allows using multiple types for the enum variants
 pub enum Value {
     String(String),
     Integer(i32),
     Float(f32),
+}
+
+
+impl InputScan{
+    /// 处理输入数据
+    pub fn renew(&self) -> Self{
+        let mut pages = Vec::new();
+        for page in &self.pages{
+            pages.push(page.renew());
+        }
+        Self { pages: pages, card_type: self.card_type }
+    }
+}
+
+impl Page {
+    pub fn renew(&self) -> Self {
+        assert!(self.model_points.len() >= 4);
+
+        let lt = self.model_points[0].clone();
+        let rd = self.model_points[self.model_points.len() - 1].clone();
+        let rt:ModelPoint;
+        let ld:ModelPoint;
+        match self.card_columns{
+            1 => {
+                rt = self.model_points[1].clone();
+                ld = self.model_points[4].clone();
+            }
+            2 => {
+                rt = self.model_points[2].clone();
+                ld = self.model_points[6].clone();
+            }
+            3 => {
+                rt = self.model_points[3].clone();
+                ld = self.model_points[8].clone();
+            }
+            4 => {
+                rt = self.model_points[4].clone();
+                ld = self.model_points[10].clone();
+            }
+            _ => {
+                panic!("Unhandled card_columns value: {}", self.card_columns);
+            }
+        }
+        Self {
+            card_columns:self.card_columns,
+            model_size:self.model_size,
+            model_points:self.model_points.clone(),
+            page_number_points:self.page_number_points.clone(),
+            recognizes:self.recognizes.clone(),
+            model_points_4:Some([lt, rt, ld, rd]),
+        }
+    }
 }

@@ -1,6 +1,9 @@
 /target
 /*.jpg
 /*.png
-/dev/test_data/
+/dev/test_data/*.jpg
+/dev/test_data/*.json
 .idea
 .vscode
+.DS_Store
+.VSCodeCounter

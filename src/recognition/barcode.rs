@@ -7,7 +7,7 @@ use rxing::{
     BufferedImageLuminanceSource,
 };
 use image::DynamicImage;
-use crate::recognition::engine::Engine;
+use crate::{models::{engine_rec::{ProcessedImages, ProcessedImagesAndModelPoints}, rec_result::Value}, recognition::engine::Engine};
 use crate::models::scan_json::Coordinate;
 use crate::my_utils::image::crop_image;
 pub fn decode_barcode(img: &DynamicImage, coor: Coordinate) -> Option<String> {
@@ -34,12 +34,11 @@ pub fn decode_barcode(img: &DynamicImage, coor: Coordinate) -> Option<String> {
 
 pub trait RecBarcode{
     /// 条形码识别
-    fn rec_barcode<T, D>(&self, toinfo: T, img: &DynamicImage) -> D;
+    fn rec_barcode(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
 }
 
 impl RecBarcode for Engine {
-    fn rec_barcode<T, D>(&self, toinfo: T, img: &DynamicImage) -> D {
-        
-        unimplemented!()
+    fn rec_barcode(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value> {
+        None
     }
 }
