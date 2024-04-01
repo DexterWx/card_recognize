@@ -23,6 +23,7 @@ pub fn decode_barcode(img: &DynamicImage, coor: Coordinate) -> Option<String> {
         &hints,
     ).expect("decodes");
     for result in results {
+        //todo 需要处理识别多个结果
         if !result.getText().is_empty() {
             return Some(result.getText().to_string());
         }
