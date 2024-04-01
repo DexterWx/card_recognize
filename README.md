@@ -17,3 +17,14 @@
     ```shell
     rustc --version
     ```
+
+## 开发流程
+
+1. 基于master创建开发分支
+
+    ```shell
+    git pull origin master
+    git checkout -b your-branch
+    ```
+2. 个人分支远端merge request到dev测试
+3. 个人分支远端merge request到master
