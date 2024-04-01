@@ -7,6 +7,7 @@ rust-1.76.0:
   stage: test
   script:
     - source ~/.bashrc
+    - . "$HOME/.cargo/env"
     - rustc -V
     - cargo test
   allow_failure: false
