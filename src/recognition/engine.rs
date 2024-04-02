@@ -4,6 +4,7 @@ use crate::config::CONFIG;
 use crate::models::engine_rec::ReferenceModelPoints;
 use crate::models::rec_result::{OutputRec, Value};
 use crate::my_utils::image::generate_real_coordinate_with_model_points;
+use crate::my_utils::node::print2node;
 use crate::models::engine_rec::ProcessedImagesAndModelPoints;
 use crate::recognition::barcode::RecBarcode;
 use crate::recognition::black_fill::RecBlackFill;
@@ -11,6 +12,7 @@ use crate::recognition::numbers::RecNumber;
 use crate::recognition::vx::RecVX;
 use super::baizheng::Baizheng;
 
+#[derive(Debug)]
 pub struct Engine {
     scan_data: scan_json::InputScan
     // todo
@@ -31,9 +33,14 @@ impl Engine {
     /// 识别，输出第二个变量用于可视化
     pub fn recognize(&self, input_images: &InputImage) -> (OutputRec,  Vec<Option<ProcessedImagesAndModelPoints>>){
         // 摆正+匹配+找到定位点
+        print2node("message0");
         let imgs_and_model_points = self.baizheng_and_match_page(&input_images);
         // 构建输出结构
-        let mut output = OutputRec::new(self.get_scan_data());
+        print2node("message1");
+        let scan_data = self.get_scan_data();
+        print2node("message2");
+        let mut output = OutputRec::new(scan_data);
+        print2node("message3");
         // 识别
         _recognize(self, &imgs_and_model_points, &mut output);
 

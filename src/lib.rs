@@ -14,8 +14,6 @@ mod tests {
 
     use super::*;
     use models::scan_json::{InputScan,InputImage};
-    use models::rec_result::OutputRec;
-    use recognition::baizheng::Baizheng;
     use recognition::engine::Engine;
     use config::CONFIG;
 
@@ -115,40 +113,81 @@ mod tests {
 
 
 
-// 静态变量声明方式
-// use once_cell::sync::Lazy;
+use models::scan_json::{InputImage, InputScan};
+use recognition::engine::Engine;
+use serde::Deserialize;
+use wasm_bindgen::prelude::*;
+use my_utils::node::print2node;
 
-// // 定义模型类型
-// struct Model {
-//     // 模型的属性
-//     param1: i32,
-//     param2: f64,
-// }
+// 全局变量的引擎结构体
+static mut ENGINE: Option<Engine> = None;
 
-// // 静态变量，用于存储初始化的模型
-// static MODEL: Lazy<Option<Model>> = Lazy::new(|| {
-//     None
-// });
+#[wasm_bindgen]
+pub fn initialize(input_json: &str){
+    println!("{:?}",input_json);
+    let input_scan: InputScan = serde_json::from_str(input_json).unwrap();
+    let input_scan = input_scan.renew();
+    // 进行一些初始化操作
+    unsafe {
+        ENGINE = Some(Engine::new(input_scan));
+    }
+}
 
-// // 初始化模型的函数
-// #[no_mangle]
-// pub extern "C" fn initialize_model(param1: i32, param2: f64) {
-//     // 更新静态变量中的模型，使用传入的参数
-//     *MODEL.force() = Some(Model {
-//         param1,
-//         param2,
-//     });
-// }
+#[wasm_bindgen]
+pub fn inference(input_json:&str) -> String {
+    unsafe {
+        // 检查引擎是否已初始化
+        let engine = ENGINE.as_ref().expect("Engine not initialized");
 
-// // 推理函数
-// #[no_mangle]
-// pub extern "C" fn inference() -> i32 {
-//     // 获取静态变量中的模型，并执行推理操作
-//     if let Some(model) = MODEL.force() {
-//         // 使用模型执行推理操作
-//         42 // 示例返回值
-//     } else {
-//         // 模型尚未初始化，返回错误值或者抛出异常
-//         panic!("Model has not been initialized");
-//     }
-// }
+        let input_image: InputImage = serde_json::from_str(input_json).unwrap();
+        let result = engine.recognize(&input_image);
+        let output_json = result.0;
+
+        // 使用 serde_json 将结果序列化为 JSON 字符串
+        serde_json::to_string(&output_json).expect("Failed to serialize JSON")
+    }
+}
+
+
+#[wasm_bindgen]
+pub struct ImageData {
+    // You might want to use raw bytes for image data
+    // Or, you can use some other representation based on your requirement
+    pixels: Vec<u8>,
+}
+
+#[wasm_bindgen]
+pub struct ImageInput {
+    value: i32,
+    // You might want to use raw bytes for image data
+    // Or, you can use some other representation based on your requirement
+    imgs: Vec<ImageData>,
+}
+
+#[wasm_bindgen]
+impl ImageData {
+    // Constructor
+    #[wasm_bindgen(constructor)]
+    pub fn new(pixels: Vec<u8>) -> Self {
+        Self { pixels }
+    }
+}
+
+#[wasm_bindgen]
+impl ImageInput {
+    // Constructor
+    #[wasm_bindgen(constructor)]
+    pub fn new(value: i32, imgs: Vec<ImageData>) -> Self {
+        Self { value, imgs}
+    }
+}
+
+
+
+#[wasm_bindgen]
+pub fn test_image(input: ImageInput){
+    let a1 = image::load_from_memory(&input.imgs[0].pixels).unwrap();
+    let a2 = image::load_from_memory(&input.imgs[1].pixels).unwrap();
+    print2node(&format!("{}",a1.width()));
+    print2node(&format!("{}",a2.width()));
+}

@@ -9,6 +9,8 @@ use crate::models::engine_rec::{ProcessedImages, ReferenceModelPoints};
 use crate::models::scan_json::ModelSize;
 use crate::{config::CONFIG, models::{card::MyPoint, scan_json::Coordinate}};
 use super::math::*;
+use super::node::print2node;
+use anyhow::{Result,Ok};
 
 pub trait HasCoordinates<T> {
     fn get_coordinates(&self) -> (&T, &T);
@@ -192,8 +194,8 @@ pub fn generate_real_coordinate_with_model_points(reference_model_points: &Refer
 
 /// 处理图片，返回图片预处理过程每一步中间图
 /// 并根据长宽比例完成图片的90度翻转
-pub fn process_image(model_size: &ModelSize, img_path: String) -> ProcessedImages {
-    let mut img = image::open(img_path).expect("Failed to open image file");
+pub fn process_image(model_size: &ModelSize, img_path: String) -> Result<ProcessedImages> {
+    let mut img = image::open(img_path)?;
     // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
     let flag_need_90 = (model_size.h > model_size.w) != (img.height() > img.width());
     if flag_need_90{
@@ -220,13 +222,13 @@ pub fn process_image(model_size: &ModelSize, img_path: String) -> ProcessedImage
     let integral_gray:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&blurred_img);
     let integral_morphology:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&eroded_img);
 
-    ProcessedImages{
+    Ok(ProcessedImages{
         rgb: rgb_img,
         gray: gray_img,
         morphology: eroded_img,
         integral_gray: integral_gray,
         integral_morphology: integral_morphology,
-    }
+    })
 }
 
 /// 旋转ProcessedImages

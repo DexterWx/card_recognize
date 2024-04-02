@@ -17,6 +17,20 @@
     ```shell
     rustc --version
     ```
+3. 更换字节cargo源，修改~/.cargo/config内容如下
+
+    ```shell
+    [source.crates-io]
+    replace-with = 'rsproxy'
+    [source.rsproxy]
+    registry = "https://rsproxy.cn/crates.io-index"
+    [source.rsproxy-sparse]
+    registry = "sparse+https://rsproxy.cn/index/"
+    [registries.rsproxy]
+    index = "https://rsproxy.cn/crates.io-index"
+    [net]
+    git-fetch-with-cli = true
+    ```
 
 ## 开发流程
 

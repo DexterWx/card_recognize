@@ -17,6 +17,7 @@ use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
 use crate::my_utils::math::{cosine_similarity, euclidean_distance};
 use crate::config::CONFIG;
+use crate::my_utils::node::print2node;
 
 use super::engine::Engine;
 
@@ -30,11 +31,18 @@ impl Baizheng for Engine {
     /// 输出对应page位置的图片，未匹配的使用None
     fn baizheng_and_match_page(&self, input_images: &InputImage) -> Vec<Option<ProcessedImagesAndModelPoints>>{
         // 读图+处理成ProcessedImages，包含各种预处理的图片
+        print2node("message1_0");
         let mut imgs: Vec<ProcessedImages> = Vec::new();
         for img_path in &input_images.images{
+            print2node("message1_0_0");
             let img = process_image(&self.get_scan_data().pages[0].model_size, img_path.to_string());
-            imgs.push(img);
+            if matches!(&img, Err(_)){
+                print2node(&format!("{:?}",&img.err()));
+            } else {
+                imgs.push(img.unwrap());
+            }
         }
+        print2node("message1_1");
         // 获取定位点wh，用于筛选定位点
         // todo: 后期可以抽象一下，目前只想到这一个
         let location_wh = (
@@ -54,6 +62,7 @@ impl Baizheng for Engine {
                 }
             );
         }
+        print2node("message1_2");
         // 生成每个图结构的旋转180副本
         let mut imgs_and_model_points_contains_180 = Vec::new();
         for img in imgs_and_model_points{
