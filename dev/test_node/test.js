@@ -1,11 +1,17 @@
 const fs = require('fs');
 const path = require('path');
-const { initialize, inference } = require('..\\..\\pkg\\card_recognize.js');
+const { initialize, inference } = require('../../pkg/card_recognize.js');
 
 // 构造文件路径（跨平台）
 const filePath = path.join(__dirname, '../test_data/cards/194751/scan.json');
-const image1_path = 'D:\\workspace\\github\\card_recognize\\dev\\test_data\\cards\\194751\\images\\790c3051d631b61c23f6eb36b4134932.jpg';
-const image2_path = 'D:\\workspace\\github\\card_recognize\\dev\\test_data\\cards\\194751\\images\\b9d86427943d5b271d8053c1dd2796bc.jpg';
+// 读取图像文件
+const filePath1 = path.join(__dirname, '../test_data/cards/194751/images/790c3051d631b61c23f6eb36b4134932.jpg');
+const filePath2 = path.join(__dirname, '../test_data/cards/194751/images/b9d86427943d5b271d8053c1dd2796bc.jpg');
+const imgData1 = fs.readFileSync(filePath1);
+const imgData2 = fs.readFileSync(filePath2);
+// 将图像数据转换为 base64 字符串
+const base64Image1 = Buffer.from(imgData1).toString('base64');
+const base64Image2 = Buffer.from(imgData2).toString('base64');
 
 // 读取 JSON 文件
 fs.readFile(filePath, 'utf8', (err, data) => {
@@ -21,7 +27,7 @@ fs.readFile(filePath, 'utf8', (err, data) => {
 
   const inputImage = {
     task_id: "123456",
-    images: [image1_path.toString(),image2_path.toString()],
+    images: [base64Image1, base64Image2],
     calling_type: 0
   };
   

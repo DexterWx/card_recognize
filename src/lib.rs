@@ -5,19 +5,20 @@ pub mod config;
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
+    use std::{fs::File, io::Cursor};
     use std::io::Read;
     use std::fs;
     use std::path::Path;
 
     use anyhow::{Result, Ok};
+    use image_base64_wasm::to_base64;
 
     use super::*;
     use models::scan_json::{InputScan,InputImage};
     use recognition::engine::Engine;
     use config::CONFIG;
 
-    use image::Rgb;
+    use image::{ImageFormat, Rgb};
     use imageproc::drawing::draw_filled_circle_mut;
 
     fn read_json(json_path: &str) -> InputScan {
@@ -46,7 +47,11 @@ mod tests {
             let entry = entry?;
             let file_path = entry.path();
             let file_path_str = file_path.to_string_lossy();
-            imgs.push(file_path_str.to_string());
+
+            // 将图像文件转换为 Base64 编码的字符串
+            let base64_image = to_base64(&file_path_str.to_string());
+
+            imgs.push(base64_image);
         }
 
         let input_image = InputImage{
@@ -115,9 +120,7 @@ mod tests {
 
 use models::scan_json::{InputImage, InputScan};
 use recognition::engine::Engine;
-use serde::Deserialize;
 use wasm_bindgen::prelude::*;
-use my_utils::node::print2node;
 
 // 全局变量的引擎结构体
 static mut ENGINE: Option<Engine> = None;
@@ -146,48 +149,4 @@ pub fn inference(input_json:&str) -> String {
         // 使用 serde_json 将结果序列化为 JSON 字符串
         serde_json::to_string(&output_json).expect("Failed to serialize JSON")
     }
-}
-
-
-#[wasm_bindgen]
-pub struct ImageData {
-    // You might want to use raw bytes for image data
-    // Or, you can use some other representation based on your requirement
-    pixels: Vec<u8>,
-}
-
-#[wasm_bindgen]
-pub struct ImageInput {
-    value: i32,
-    // You might want to use raw bytes for image data
-    // Or, you can use some other representation based on your requirement
-    imgs: Vec<ImageData>,
-}
-
-#[wasm_bindgen]
-impl ImageData {
-    // Constructor
-    #[wasm_bindgen(constructor)]
-    pub fn new(pixels: Vec<u8>) -> Self {
-        Self { pixels }
-    }
-}
-
-#[wasm_bindgen]
-impl ImageInput {
-    // Constructor
-    #[wasm_bindgen(constructor)]
-    pub fn new(value: i32, imgs: Vec<ImageData>) -> Self {
-        Self { value, imgs}
-    }
-}
-
-
-
-#[wasm_bindgen]
-pub fn test_image(input: ImageInput){
-    let a1 = image::load_from_memory(&input.imgs[0].pixels).unwrap();
-    let a2 = image::load_from_memory(&input.imgs[1].pixels).unwrap();
-    print2node(&format!("{}",a1.width()));
-    print2node(&format!("{}",a2.width()));
 }
