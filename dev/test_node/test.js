@@ -10,8 +10,8 @@ const filePath2 = path.join(__dirname, '../test_data/cards/194751/images/b9d8642
 const imgData1 = fs.readFileSync(filePath1);
 const imgData2 = fs.readFileSync(filePath2);
 // 将图像数据转换为 base64 字符串
-const base64Image1 = Buffer.from(imgData1).toString('base64');
-const base64Image2 = Buffer.from(imgData2).toString('base64');
+const base64Image1 = 'data:image/jpeg;base64,' + imgData1.toString('base64');
+const base64Image2 = 'data:image/jpeg;base64,' + imgData2.toString('base64');
 
 // 读取 JSON 文件
 fs.readFile(filePath, 'utf8', (err, data) => {
@@ -22,7 +22,6 @@ fs.readFile(filePath, 'utf8', (err, data) => {
   
   // 将读取的 JSON 数据转换为字符串
   const jsonString = JSON.stringify(JSON.parse(data));
-
   initialize(jsonString);
 
   const inputImage = {
@@ -32,8 +31,9 @@ fs.readFile(filePath, 'utf8', (err, data) => {
   };
   
   const jsonString_iamge = JSON.stringify(inputImage);
-
+  console.time('myTimer');
   const result = inference(jsonString_iamge);
+  console.timeEnd('myTimer');
   
-  console.log(result); 
+  // console.log(result); 
 });
