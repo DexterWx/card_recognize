@@ -14,7 +14,13 @@ imageproc = "0.24"
 once_cell = "1.8.0"
 serde_yaml = "0.9.34"
 rxing = "0.5.8"
+wasm-bindgen = "0.2"
+image-base64-wasm = "0.6.0"
+
 
 [profile.dev]
 opt-level = 3
 debug = false
+
+[lib]
+crate-type = ["cdylib"]

@@ -17,6 +17,7 @@ use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
 use crate::my_utils::math::{cosine_similarity, euclidean_distance};
 use crate::config::CONFIG;
+use crate::my_utils::node::print2node;
 
 use super::engine::Engine;
 
@@ -31,8 +32,8 @@ impl Baizheng for Engine {
     fn baizheng_and_match_page(&self, input_images: &InputImage) -> Vec<Option<ProcessedImagesAndModelPoints>>{
         // 读图+处理成ProcessedImages，包含各种预处理的图片
         let mut imgs: Vec<ProcessedImages> = Vec::new();
-        for img_path in &input_images.images{
-            let img = process_image(&self.get_scan_data().pages[0].model_size, img_path.to_string());
+        for base64_image in &input_images.images{
+            let img = process_image(&self.get_scan_data().pages[0].model_size, base64_image);
             imgs.push(img);
         }
         // 获取定位点wh，用于筛选定位点

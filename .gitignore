@@ -3,7 +3,10 @@
 /*.png
 /dev/test_data/*.jpg
 /dev/test_data/*.json
+/dev/test_node/*.png
+/dev/test_node/*.jpg
 .idea
 .vscode
 .DS_Store
 .VSCodeCounter
+pkg/
