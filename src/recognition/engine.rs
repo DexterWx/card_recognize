@@ -11,6 +11,7 @@ use crate::recognition::numbers::RecNumber;
 use crate::recognition::vx::RecVX;
 use super::baizheng::Baizheng;
 
+#[derive(Debug)]
 pub struct Engine {
     scan_data: scan_json::InputScan
     // todo
@@ -33,7 +34,8 @@ impl Engine {
         // 摆正+匹配+找到定位点
         let imgs_and_model_points = self.baizheng_and_match_page(&input_images);
         // 构建输出结构
-        let mut output = OutputRec::new(self.get_scan_data());
+        let scan_data = self.get_scan_data();
+        let mut output = OutputRec::new(scan_data);
         // 识别
         _recognize(self, &imgs_and_model_points, &mut output);
 
