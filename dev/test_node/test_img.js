@@ -12,6 +12,3 @@ const imgData2 = fs.readFileSync(filePath2);
 // 将图像数据转换为 base64 字符串
 const base64Image1 = Buffer.from(imgData1).toString('base64');
 const base64Image2 = Buffer.from(imgData2).toString('base64');
-
-// base64Image 就是转换后的 base64 字符串
-console.log(base64Image);

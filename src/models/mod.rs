@@ -17,7 +17,7 @@ pub mod card{
 /// 定义引擎各种识别方法所需的结构体
 /// 将每个方法所需要用到的字段整理成对应的结构体
 pub mod engine_rec{
-    use image::{GrayImage, ImageBuffer, Luma, RgbImage};
+    use image::{GrayImage, ImageBuffer, Luma, Rgb, RgbImage};
 
     use super::scan_json::{Coordinate, ModelPoint, ModelSize, PageNumberPoint};
 
@@ -37,6 +37,8 @@ pub mod engine_rec{
     /// 识别需要用到的各种图片
     #[derive(Clone)]
     pub struct ProcessedImages{
+        /// 未处理的原始图，为了兼容业务逻辑
+        pub org: Option<String>,
         /// 原始rgb图
         pub rgb: RgbImage,
         /// 二值灰度图

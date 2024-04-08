@@ -27,8 +27,7 @@ pub trait Baizheng{
 
 
 impl Baizheng for Engine {
-    /// 输入的图片已经是经过小角度摆正的图片
-    /// 输出对应page位置的图片，未匹配的使用None
+    /// 输出对应page位置的图片并摆正，未匹配的使用None
     fn baizheng_and_match_page(&self, input_images: &InputImage) -> Vec<Option<ProcessedImagesAndModelPoints>>{
         // 读图+处理成ProcessedImages，包含各种预处理的图片
         let mut imgs: Vec<ProcessedImages> = Vec::new();
@@ -55,6 +54,7 @@ impl Baizheng for Engine {
                 }
             );
         }
+        // 下面是判断图片是否需要180旋转
         // 生成每个图结构的旋转180副本
         let mut imgs_and_model_points_contains_180 = Vec::new();
         for img in imgs_and_model_points{
@@ -78,6 +78,7 @@ impl Baizheng for Engine {
                 };
                 let flag = match_page_and_img(&match_info, &img_and_model_points);
                 if flag{
+                    let img_and_model_points = img_and_model_points.clone();
                     processed_images_res[index] = Some(img_and_model_points.clone());
                     break
                 }
