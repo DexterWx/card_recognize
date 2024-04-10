@@ -1,9 +1,15 @@
+use std::fs::read_link;
+
+use image::{DynamicImage, Rgb};
+use image_base64_wasm::to_base64;
+use imageproc::drawing::draw_filled_circle_mut;
+
 use crate::models::scan_json::{self, InputImage};
 use crate::config::CONFIG;
 
 use crate::models::engine_rec::ReferenceModelPoints;
-use crate::models::rec_result::{OutputRec, Value};
-use crate::my_utils::image::generate_real_coordinate_with_model_points;
+use crate::models::rec_result::{OutputRec, PageSize, Value};
+use crate::my_utils::image::{generate_real_coordinate_with_model_points, image_to_base64};
 use crate::models::engine_rec::ProcessedImagesAndModelPoints;
 use crate::recognition::barcode::RecBarcode;
 use crate::recognition::black_fill::RecBlackFill;
@@ -31,11 +37,14 @@ impl Engine {
     }
     /// 识别，输出第二个变量用于可视化
     pub fn recognize(&self, input_images: &InputImage) -> (OutputRec,  Vec<Option<ProcessedImagesAndModelPoints>>){
-        // 摆正+匹配+找到定位点
-        let imgs_and_model_points = self.baizheng_and_match_page(&input_images);
+        
         // 构建输出结构
         let scan_data = self.get_scan_data();
         let mut output = OutputRec::new(scan_data);
+        
+        // 摆正+匹配+找到定位点
+        let imgs_and_model_points = self.baizheng_and_match_page(&input_images, &mut output);
+
         // 识别
         _recognize(self, &imgs_and_model_points, &mut output);
 
@@ -51,10 +60,21 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
         // 没有图片跳过
         // ps.一种避免解析option嵌套的写法
         if matches!(img_and_model_points,None) {continue;}
-        let img_and_model_points = img_and_model_points.as_ref().unwrap();
+        let img_and_model_points = img_and_model_points.as_ref().expect("img_and_model_points is None");
+        // 填充输出图片信息
+        page_out.has_page = true;
+        page_out.image_source = img_and_model_points.img.org.clone();
+        page_out.image_rotated = Some(image_to_base64(&img_and_model_points.img.rgb));
+        page_out.page_size = Some(
+            PageSize{
+                w: img_and_model_points.img.rgb.width() as i32,
+                h: img_and_model_points.img.rgb.height() as i32,
+            }
+        );
+        let mut render_image = img_and_model_points.img.rgb.clone();
         // 构建坐标转换需要用到的参照定位点
         let reference_model_points = ReferenceModelPoints{
-            model_points: &page.model_points_4.unwrap(),
+            model_points: &page.model_points_4.expect("model_points_4 is None"),
             real_model_points: &img_and_model_points.real_model_points
         };
         // 遍历每个option，根据识别类型调用不同的方法
@@ -86,6 +106,9 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                     _ =>{}
                 }
                 option_out.value = res;
+                // 渲染
+                draw_filled_circle_mut(&mut render_image, (real_coordinate.x, real_coordinate.y), 5, Rgb([0,0,255]));
+                draw_filled_circle_mut(&mut render_image, (real_coordinate.x+real_coordinate.w, real_coordinate.y+real_coordinate.h), 5, Rgb([0,0,255]));
                 #[cfg(debug_assertions)]
                 {
                     option_out.coordinate = Some(real_coordinate);
@@ -93,5 +116,6 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                 
             }
         }
+        page_out.image_rendering = Some(image_to_base64(&render_image));
     }
 }

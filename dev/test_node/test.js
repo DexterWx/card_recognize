@@ -33,6 +33,7 @@ fs.readFile(filePath, 'utf8', (err, data) => {
   const jsonString_iamge = JSON.stringify(inputImage);
   console.time('myTimer');
   const result = inference(jsonString_iamge);
+  console.log(result);
   console.timeEnd('myTimer');
   
   // console.log(result); 
