@@ -1,4 +1,6 @@
-use image::{DynamicImage, ImageBuffer, Luma, Rgb};
+use std::io::Cursor;
+
+use image::{DynamicImage, ImageBuffer, Luma, Rgb, RgbImage, ImageFormat};
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use imageproc::morphology::{dilate, erode};
@@ -11,6 +13,7 @@ use crate::{config::CONFIG, models::{card::MyPoint, scan_json::Coordinate}};
 use super::math::*;
 use anyhow::{Result,Ok};
 use image_base64_wasm::from_base64;
+use image_base64_wasm::vec_to_base64;
 
 pub trait HasCoordinates<T> {
     fn get_coordinates(&self) -> (&T, &T);
@@ -231,6 +234,7 @@ pub fn process_image(model_size: &ModelSize, base64_image: &String) -> Processed
     let integral_morphology:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&eroded_img);
 
     ProcessedImages{
+        org: Some(base64_image.clone()),
         rgb: rgb_img,
         gray: gray_img,
         morphology: eroded_img,
@@ -270,6 +274,14 @@ pub fn calculate_page_number_difference(
 
     mean_absolute_difference(&fill_rates, &real_fill_rates)
 }
+
+pub fn image_to_base64(img: &RgbImage) -> String {
+    let mut image_data: Vec<u8> = Vec::new();
+    img.write_to(&mut Cursor::new(&mut image_data), ImageFormat::Jpeg).expect("Encode Image to Base64 Failed");
+    vec_to_base64(image_data)
+}
+
+
 
 /**
  * 截取图像

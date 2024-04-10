@@ -13,7 +13,7 @@ pub struct OutputRec{
     pub code: u8,
     pub message: String,
     pub pages: Vec<Page>,
-    pub images: Option<Vec<ImageStatus>>
+    pub images: Vec<ImageStatus>
 }
 
 
@@ -21,13 +21,13 @@ pub struct OutputRec{
 pub struct ImageStatus{
     pub image_source: String,
     pub code: u8,
-    pub w: i32,
-    pub h: i32
+    pub page_size: PageSize
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Page{
     pub has_page: bool,
+    pub page_size: Option<PageSize>,
     pub image_source: Option<String>,
     pub image_rotated: Option<String>,
     pub image_rendering: Option<String>,
@@ -49,6 +49,12 @@ pub struct RecOption{
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct PageSize{
+    pub w: i32,
+    pub h: i32
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)] // Allows using multiple types for the enum variants
 pub enum Value {
     String(String),
@@ -65,6 +71,7 @@ impl OutputRec{
             pages: input.pages.iter().map(|page| {
                 Page{
                     has_page: false,
+                    page_size: None,
                     image_source: None,
                     image_rendering: None,
                     image_rotated: None,
@@ -82,7 +89,7 @@ impl OutputRec{
                     }).collect()
                 }
             }).collect(),
-            images: None
+            images: Vec::new(),
         }
     }
 }
