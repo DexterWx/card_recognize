@@ -13,7 +13,7 @@ pub struct OutputRec{
     pub code: u8,
     pub message: String,
     pub pages: Vec<Page>,
-    pub images: Option<Vec<ImageStatus>>
+    pub images: Vec<ImageStatus>
 }
 
 
@@ -89,7 +89,7 @@ impl OutputRec{
                     }).collect()
                 }
             }).collect(),
-            images: None
+            images: Vec::new(),
         }
     }
 }

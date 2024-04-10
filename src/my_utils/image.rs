@@ -277,7 +277,7 @@ pub fn calculate_page_number_difference(
 
 pub fn image_to_base64(img: &RgbImage) -> String {
     let mut image_data: Vec<u8> = Vec::new();
-    img.write_to(&mut Cursor::new(&mut image_data), ImageFormat::Jpeg).unwrap();
+    img.write_to(&mut Cursor::new(&mut image_data), ImageFormat::Jpeg).expect("Encode Image to Base64 Failed");
     vec_to_base64(image_data)
 }
 

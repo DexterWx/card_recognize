@@ -29,7 +29,7 @@ mod tests {
 
         // 构建第一次输入的scanjson和第二次输入图片
         let input_scan = read_json(&json_path);
-        let input_images = read_image(&image_dir).unwrap();
+        let input_images = read_image(&image_dir).expect("Read Image Failed");
 
         // 引擎初始化
         let engine = Engine::new(input_scan);
@@ -45,9 +45,15 @@ mod tests {
         for (index,(img_and_model_points, page)) in imgs_and_model_points.iter().zip(output.pages).enumerate(){
             if matches!(img_and_model_points, None){continue;}
             if matches!(page.image_rendering, None){continue;}
-            let mut rendering = trans_base64_to_image(&page.image_rendering.unwrap());
+            let mut rendering = trans_base64_to_image(&page.image_rendering.expect("image_rendering is None"));
             let out_img_path = format!("dev/test_data/output_view_{index}.jpg");
             rendering.to_rgb8().save(out_img_path);
+        }
+
+        for (index,img) in output.images.iter().enumerate(){
+            let img = trans_base64_to_image(&img.image_source);
+            let out_img_path = format!("dev/test_data/output_view_image_status_{index}.jpg");
+            img.to_rgb8().save(out_img_path);
         }
 
         Ok(())
@@ -57,7 +63,7 @@ mod tests {
 
     fn read_json(json_path: &str) -> InputScan {
         
-        let scan_path = Path::new(json_path).to_str().unwrap().to_string();
+        let scan_path = Path::new(json_path).to_str().expect("Parse Json Path Failed").to_string();
         let mut file = File::open(scan_path).expect("Failed to open file");
 
         // 读取文件内容
@@ -65,8 +71,8 @@ mod tests {
         file.read_to_string(&mut json_str)
             .expect("Failed to read file");
 
-        // 将 JSON 解析为 MyStruct 结构体
-        let parsed_struct: InputScan = serde_json::from_str(&json_str).unwrap();
+        // 将 JSON 解析为 InputScan 结构体
+        let parsed_struct: InputScan = serde_json::from_str(&json_str).expect("Parse InputScan Failed");
         let input1 = parsed_struct.renew();
         input1
     }
@@ -111,7 +117,7 @@ static mut ENGINE: Option<Engine> = None;
 #[wasm_bindgen]
 pub fn initialize(input_json: &str){
     println!("{:?}",input_json);
-    let input_scan: InputScan = serde_json::from_str(input_json).unwrap();
+    let input_scan: InputScan = serde_json::from_str(input_json).expect("Parse Input Failed");
     let input_scan = input_scan.renew();
     // 进行一些初始化操作
     unsafe {
@@ -125,7 +131,7 @@ pub fn inference(input_json:&str) -> String {
         // 检查引擎是否已初始化
         let engine = ENGINE.as_ref().expect("Engine not initialized");
 
-        let input_image: InputImage = serde_json::from_str(input_json).unwrap();
+        let input_image: InputImage = serde_json::from_str(input_json).expect("Parse Input Failed");
         let result = engine.recognize(&input_image);
         let output_json = result.0;
 

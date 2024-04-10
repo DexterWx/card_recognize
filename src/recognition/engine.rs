@@ -37,11 +37,14 @@ impl Engine {
     }
     /// 识别，输出第二个变量用于可视化
     pub fn recognize(&self, input_images: &InputImage) -> (OutputRec,  Vec<Option<ProcessedImagesAndModelPoints>>){
-        // 摆正+匹配+找到定位点
-        let imgs_and_model_points = self.baizheng_and_match_page(&input_images);
+        
         // 构建输出结构
         let scan_data = self.get_scan_data();
         let mut output = OutputRec::new(scan_data);
+        
+        // 摆正+匹配+找到定位点
+        let imgs_and_model_points = self.baizheng_and_match_page(&input_images, &mut output);
+
         // 识别
         _recognize(self, &imgs_and_model_points, &mut output);
 
@@ -57,7 +60,7 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
         // 没有图片跳过
         // ps.一种避免解析option嵌套的写法
         if matches!(img_and_model_points,None) {continue;}
-        let img_and_model_points = img_and_model_points.as_ref().unwrap();
+        let img_and_model_points = img_and_model_points.as_ref().expect("img_and_model_points is None");
         // 填充输出图片信息
         page_out.has_page = true;
         page_out.image_source = img_and_model_points.img.org.clone();
@@ -71,7 +74,7 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
         let mut render_image = img_and_model_points.img.rgb.clone();
         // 构建坐标转换需要用到的参照定位点
         let reference_model_points = ReferenceModelPoints{
-            model_points: &page.model_points_4.unwrap(),
+            model_points: &page.model_points_4.expect("model_points_4 is None"),
             real_model_points: &img_and_model_points.real_model_points
         };
         // 遍历每个option，根据识别类型调用不同的方法

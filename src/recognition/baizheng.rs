@@ -1,15 +1,20 @@
 /// 完成图片和scanjson的页匹配+图片摆正
 
 use std::f32::consts::PI;
+use std::collections::HashMap;
 
 use image::ImageBuffer;
 use image::Luma;
 use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
+use imageproc::integral_image::sum_image_pixels;
 
 use crate::models::engine_rec::ProcessedImages;
 use crate::models::engine_rec::ReferenceModelPoints;
 use crate::models::engine_rec::{ProcessedImagesAndModelPoints, RecInfoBaizheng};
+use crate::models::rec_result::ImageStatus;
+use crate::models::rec_result::OutputRec;
+use crate::models::rec_result::PageSize;
 use crate::models::scan_json::InputImage;
 use crate::models::scan_json::PageNumberPoint;
 use crate::models::scan_json::{Coordinate, ModelSize};
@@ -22,19 +27,24 @@ use crate::my_utils::node::print2node;
 use super::engine::Engine;
 
 pub trait Baizheng{
-    fn baizheng_and_match_page(&self, input_images: &InputImage) -> Vec<Option<ProcessedImagesAndModelPoints>>;
+    fn baizheng_and_match_page(&self, input_images: &InputImage, output: &mut OutputRec) -> Vec<Option<ProcessedImagesAndModelPoints>>;
 }
 
 
 impl Baizheng for Engine {
     /// 输出对应page位置的图片并摆正，未匹配的使用None
-    fn baizheng_and_match_page(&self, input_images: &InputImage) -> Vec<Option<ProcessedImagesAndModelPoints>>{
+    fn baizheng_and_match_page(&self, input_images: &InputImage, output: &mut OutputRec) -> Vec<Option<ProcessedImagesAndModelPoints>>{
         // 读图+处理成ProcessedImages，包含各种预处理的图片
         let mut imgs: Vec<ProcessedImages> = Vec::new();
         for base64_image in &input_images.images{
             let img = process_image(&self.get_scan_data().pages[0].model_size, base64_image);
+            let mean_pixel = sum_image_pixels(
+                &img.integral_gray, 0, 0, img.morphology.width()-1, img.morphology.height()-1
+            )[0]/((img.morphology.width() * img.morphology.height()) as i64);
+            if mean_pixel > 253{continue;}
             imgs.push(img);
         }
+        let imgs_len = imgs.len();
         // 获取定位点wh，用于筛选定位点
         // todo: 后期可以抽象一下，目前只想到这一个
         let location_wh = (
@@ -45,11 +55,11 @@ impl Baizheng for Engine {
         // 并根据定位点进行小角度摆正
         // 将img和定位点组成后续公用的图结构ProcessedImagesAndModelPoints
         let mut imgs_and_model_points = Vec::new();
-        for mut img in imgs{
-            let coordinates = generate_location_and_rotate(&mut img, location_wh);
+        for mut img in imgs.iter_mut(){
+            let coordinates = generate_location_and_rotate(img, location_wh);
             imgs_and_model_points.push(
                 ProcessedImagesAndModelPoints{
-                    img: img,
+                    img: img.clone(),
                     real_model_points: coordinates,
                 }
             );
@@ -64,13 +74,19 @@ impl Baizheng for Engine {
             imgs_and_model_points_contains_180.push(img_180);
         }
 
+        // 初始化匹配成功的标记
+        let mut is_match_dict: HashMap<usize, bool> = HashMap::new();
+        for i in (0..imgs_len){
+            is_match_dict.insert(i, false);
+        }
+
         // 遍历scan的每个page，从所有图结构里匹配页码差异符合要求的
         // todo：目前设定了一个差异度阈值，符合后就不做后续匹配了，后期可以加入差异排名做进一步判断
         let scan_size = self.get_scan_data().pages.len();
         let mut processed_images_res: Vec<Option<ProcessedImagesAndModelPoints>> = vec![None;scan_size];
 
-        for (index,page) in self.get_scan_data().pages.iter().enumerate(){
-            for img_and_model_points in &imgs_and_model_points_contains_180{
+        for (index_scan,page) in self.get_scan_data().pages.iter().enumerate(){
+            for (index_image, img_and_model_points) in imgs_and_model_points_contains_180.iter().enumerate(){
                 let match_info = RecInfoBaizheng{
                     model_size: &page.model_size,
                     page_number_points: &page.page_number_points,
@@ -79,11 +95,26 @@ impl Baizheng for Engine {
                 let flag = match_page_and_img(&match_info, &img_and_model_points);
                 if flag{
                     let img_and_model_points = img_and_model_points.clone();
-                    processed_images_res[index] = Some(img_and_model_points.clone());
+                    processed_images_res[index_scan] = Some(img_and_model_points.clone());
+                    is_match_dict.insert(index_image/2, true);
                     break
                 }
             }
         }
+        for (index, flag) in is_match_dict.iter() {
+            let _base64 = imgs[*index].org.as_ref().expect("org is None");
+            let _img = trans_base64_to_image(&_base64);
+            let mut image_status = ImageStatus {
+                image_source: _base64.clone(),
+                code: if *flag { 0 } else { 1 },
+                page_size: PageSize {
+                    w: _img.width() as i32,
+                    h: _img.height() as i32,
+                },
+            };
+            output.images.push(image_status);
+        }
+
         processed_images_res
     }
 }
@@ -118,7 +149,7 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
     let mut rd = Coordinate{x:-111111,y:-111111,w:0,h:0};
 
     for contour in contours.iter(){
-        let [lt_box, rt_box, ld_box] = calculate_points_lt_rt_ld(&contour.points).unwrap();
+        let [lt_box, rt_box, ld_box] = calculate_points_lt_rt_ld(&contour.points).expect("Calculate 3 Points Failed");
         let w = euclidean_distance((lt_box.x as f32,lt_box.y as f32), (rt_box.x as f32,rt_box.y as f32)) as i32;
         let h = euclidean_distance((lt_box.x as f32,lt_box.y as f32), (ld_box.x as f32,ld_box.y as f32)) as i32;
         // 过滤影响定位点选择的框框，余弦相似度如果不够大说明不是定位点。
