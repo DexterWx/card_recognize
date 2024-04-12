@@ -41,7 +41,7 @@ impl Baizheng for Engine {
             let mean_pixel = sum_image_pixels(
                 &img.integral_gray, 0, 0, img.morphology.width()-1, img.morphology.height()-1
             )[0]/((img.morphology.width() * img.morphology.height()) as i64);
-            if mean_pixel > 253{continue;}
+            if mean_pixel > CONFIG.image_process.empty_image_threshold as i64{continue;}
             imgs.push(img);
         }
         let imgs_len = imgs.len();
