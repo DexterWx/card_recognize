@@ -54,11 +54,6 @@ mod tests {
             img_and_model_points.as_ref().unwrap().img.gray.save(out_gray_path);
         }
 
-        for (index,img) in output.images.iter().enumerate(){
-            let img = trans_base64_to_image(&img.image_source);
-            let out_img_path = format!("dev/test_data/output_view_image_status_{index}.jpg");
-            img.to_rgb8().save(out_img_path);
-        }
 
         Ok(())
 
