@@ -116,6 +116,11 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                 
             }
         }
+        // 渲染定位点
+        for p in img_and_model_points.real_model_points.iter(){
+            draw_filled_circle_mut(&mut render_image, (p.x, p.y), 5, Rgb([0,0,255]));
+            draw_filled_circle_mut(&mut render_image, (p.x+p.w, p.y+p.h), 5, Rgb([0,0,255]));
+        }
         page_out.image_rendering = Some(image_to_base64(&render_image));
     }
 }

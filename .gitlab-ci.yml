@@ -11,3 +11,6 @@ rust-1.76.0:
     - rustc -V
     - cargo test
   allow_failure: false
+  tags:
+    - docker
+

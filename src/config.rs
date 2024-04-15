@@ -8,7 +8,8 @@ use std::io::BufReader;
 pub struct ImageProcess {
     pub gaussian_blur_sigma: f32,
     pub binarization_threshold: u8,
-    pub morphology_kernel: u8
+    pub morphology_kernel: u8,
+    pub empty_image_threshold: u8
 }
 
 /// 图片摆正处理参数
@@ -54,6 +55,7 @@ pub static CONFIG: Config = Config{
         gaussian_blur_sigma: 1.0,
         binarization_threshold: 180,
         morphology_kernel: 5,
+        empty_image_threshold: 253,
     },
     image_baizheng: ImageBaizheng{
         page_number_diff: 0.21,

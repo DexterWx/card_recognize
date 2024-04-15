@@ -48,13 +48,12 @@ mod tests {
             let mut rendering = trans_base64_to_image(&page.image_rendering.expect("image_rendering is None"));
             let out_img_path = format!("dev/test_data/output_view_{index}.jpg");
             rendering.to_rgb8().save(out_img_path);
+            let out_mor_path = format!("dev/test_data/output_mor_{index}.jpg");
+            img_and_model_points.as_ref().unwrap().img.morphology.save(out_mor_path);
+            let out_gray_path = format!("dev/test_data/output_gray_{index}.jpg");
+            img_and_model_points.as_ref().unwrap().img.gray.save(out_gray_path);
         }
 
-        for (index,img) in output.images.iter().enumerate(){
-            let img = trans_base64_to_image(&img.image_source);
-            let out_img_path = format!("dev/test_data/output_view_image_status_{index}.jpg");
-            img.to_rgb8().save(out_img_path);
-        }
 
         Ok(())
 
