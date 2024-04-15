@@ -286,6 +286,6 @@ pub fn image_to_base64(img: &RgbImage) -> String {
 /**
  * 截取图像
  */
-pub fn crop_image(image: &DynamicImage, coor: Coordinate) -> DynamicImage {
+pub fn crop_image(image: &DynamicImage, coor: &Coordinate) -> DynamicImage {
     image.crop_imm(coor.x as u32, coor.y as u32, coor.w as u32, coor.h as u32)
 }
