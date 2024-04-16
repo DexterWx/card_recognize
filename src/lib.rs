@@ -54,6 +54,10 @@ mod tests {
             img_and_model_points.as_ref().unwrap().img.gray.save(out_gray_path);
         }
 
+        // 图片code
+        for (index,image) in output.images.iter().enumerate(){
+            println!("{:?}",image.code); 
+        }
 
         Ok(())
 

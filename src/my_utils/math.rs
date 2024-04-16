@@ -1,3 +1,5 @@
+use crate::config::CONFIG;
+
 /// 余弦相似度
 pub fn cosine_similarity(vec1: &[f32], vec2: &[f32]) -> f32 {
     let dot_product = vec1.iter().zip(vec2.iter()).map(|(&a, &b)| a * b).sum::<f32>();
@@ -21,4 +23,12 @@ pub fn euclidean_distance(point1: (f32, f32), point2: (f32, f32)) -> f32 {
     let dy = point2.1 - point1.1;
 
     (dx.powi(2) + dy.powi(2)).sqrt()
+}
+
+pub fn points4_is_valid(points: [(i32, i32); 4]) -> bool{
+    let diff_x = ((points[2].0 - points[0].0) - (points[3].0 - points[1].0)).abs();
+    let diff_y = ((points[2].1 - points[0].1) - (points[3].1 - points[1].1)).abs();
+    if diff_x > CONFIG.image_baizheng.model_point_diff{return false;}
+    if diff_y > CONFIG.image_baizheng.model_point_diff{return false;}
+    true
 }
