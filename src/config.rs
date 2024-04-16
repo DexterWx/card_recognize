@@ -16,7 +16,8 @@ pub struct ImageProcess {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImageBaizheng {
     pub page_number_diff: f32,
-    pub model_point_wh_cosine_similarity: f32
+    pub model_point_wh_cosine_similarity: f32,
+    pub model_point_diff: i32,
 }
 
 /// 识别类型参数
@@ -59,7 +60,8 @@ pub static CONFIG: Config = Config{
     },
     image_baizheng: ImageBaizheng{
         page_number_diff: 0.21,
-        model_point_wh_cosine_similarity: 0.985
+        model_point_wh_cosine_similarity: 0.985,
+        model_point_diff:50
     },
     recognize_type: RecognitionType{
         black_fill: 1,

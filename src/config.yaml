@@ -6,6 +6,7 @@ image_process:
 image_baizheng:
   page_number_diff: 0.21
   model_point_wh_cosine_similarity: 0.985
+  model_point_diff: 50
 recognize_type:
   black_fill: 1
   vx: 2
