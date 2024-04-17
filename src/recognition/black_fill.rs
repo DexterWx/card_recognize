@@ -9,7 +9,7 @@ pub trait RecBlackFill{
 
 impl RecBlackFill for Engine {
     fn rec_black_fill(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>{
-        // sum_image_pixels(integral_image, left, top, right, bottom)
+        // sum_image_pixels(integral_image, left, top, right-1, bottom-1)
         None
     }
 }

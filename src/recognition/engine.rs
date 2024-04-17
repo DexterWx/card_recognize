@@ -71,7 +71,10 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                 h: img_and_model_points.img.rgb.height() as i32,
             }
         );
-        let mut render_image = img_and_model_points.img.rgb.clone();
+        #[cfg(debug_assertions)]
+        {
+            let mut render_image = img_and_model_points.img.rgb.clone();
+        }
         // 构建坐标转换需要用到的参照定位点
         let reference_model_points = ReferenceModelPoints{
             model_points: &page.model_points_4.expect("model_points_4 is None"),
@@ -106,21 +109,24 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                     _ =>{}
                 }
                 option_out.value = res;
-                // 渲染
-                draw_filled_circle_mut(&mut render_image, (real_coordinate.x, real_coordinate.y), 5, Rgb([0,0,255]));
-                draw_filled_circle_mut(&mut render_image, (real_coordinate.x+real_coordinate.w, real_coordinate.y+real_coordinate.h), 5, Rgb([0,0,255]));
                 #[cfg(debug_assertions)]
                 {
+                    // 渲染
+                    draw_filled_circle_mut(&mut render_image, (real_coordinate.x, real_coordinate.y), 5, Rgb([0,0,255]));
+                    draw_filled_circle_mut(&mut render_image, (real_coordinate.x+real_coordinate.w, real_coordinate.y+real_coordinate.h), 5, Rgb([0,0,255]));
                     option_out.coordinate = Some(real_coordinate);
                 }
                 
             }
         }
-        // 渲染定位点
-        for p in img_and_model_points.real_model_points.iter(){
-            draw_filled_circle_mut(&mut render_image, (p.x, p.y), 5, Rgb([0,0,255]));
-            draw_filled_circle_mut(&mut render_image, (p.x+p.w, p.y+p.h), 5, Rgb([0,0,255]));
+        #[cfg(debug_assertions)]
+        {
+            // 渲染定位点
+            for p in img_and_model_points.real_model_points.iter(){
+                draw_filled_circle_mut(&mut render_image, (p.x, p.y), 5, Rgb([0,0,255]));
+                draw_filled_circle_mut(&mut render_image, (p.x+p.w, p.y+p.h), 5, Rgb([0,0,255]));
+            }
+            page_out.image_rendering = Some(image_to_base64(&render_image));
         }
-        page_out.image_rendering = Some(image_to_base64(&render_image));
     }
 }
