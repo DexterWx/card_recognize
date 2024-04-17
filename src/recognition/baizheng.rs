@@ -6,8 +6,10 @@ use std::collections::HashMap;
 use anyhow::Result;
 use image::ImageBuffer;
 use image::Luma;
+use image::Rgb;
 use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
+use imageproc::drawing::draw_filled_circle_mut;
 use imageproc::integral_image::sum_image_pixels;
 use rxing::datamatrix::decoder::Version;
 
@@ -32,6 +34,7 @@ use super::engine::Engine;
 
 pub trait Baizheng{
     fn baizheng_and_match_page(&self, input_images: &InputImage, output: &mut OutputRec) -> Vec<Option<ProcessedImagesAndModelPoints>>;
+    fn rendering_model_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
 }
 
 
@@ -178,6 +181,20 @@ impl Baizheng for Engine {
         }
 
         processed_images_res
+    }
+
+    fn rendering_model_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
+        for (index,(img_and_model_points, page)) in imgs_and_model_points.iter().zip(output.pages.iter_mut()).enumerate(){
+            if matches!(img_and_model_points, None){continue;}
+            let rendering = trans_base64_to_image(&page.image_rotated.as_ref().expect("image_rendering is None"));
+            let mut rendering = rendering.to_rgb8();
+            for point in img_and_model_points.as_ref().unwrap().real_model_points.iter(){
+                draw_filled_circle_mut(&mut rendering,(point.x,point.y),3, Rgb([0,0,255]));
+                draw_filled_circle_mut(&mut rendering,(point.x+point.w,point.y+point.h),3, Rgb([0,0,255]));
+            }
+            let img_base64 = image_to_base64(&rendering);
+            page.image_rendering = Some(img_base64);
+        }
     }
 }
 

@@ -4,12 +4,12 @@ use image::{DynamicImage, Rgb};
 use image_base64_wasm::to_base64;
 use imageproc::drawing::draw_filled_circle_mut;
 
-use crate::models::scan_json::{self, InputImage};
+use crate::models::scan_json::{self, Coordinate, InputImage};
 use crate::config::CONFIG;
 
 use crate::models::engine_rec::ReferenceModelPoints;
 use crate::models::rec_result::{OutputRec, PageSize, Value};
-use crate::my_utils::image::{generate_real_coordinate_with_model_points, image_to_base64};
+use crate::my_utils::image::{generate_real_coordinate_with_model_points, image_to_base64, trans_base64_to_image};
 use crate::models::engine_rec::ProcessedImagesAndModelPoints;
 use crate::recognition::barcode::RecBarcode;
 use crate::recognition::black_fill::RecBlackFill;
@@ -43,10 +43,20 @@ impl Engine {
         let mut output = OutputRec::new(scan_data);
         
         // 摆正+匹配+找到定位点
-        let imgs_and_model_points = self.baizheng_and_match_page(&input_images, &mut output);
+        let mut imgs_and_model_points = self.baizheng_and_match_page(&input_images, &mut output);
 
         // 识别
         _recognize(self, &imgs_and_model_points, &mut output);
+
+        // 渲染
+        #[cfg(debug_assertions)]
+        {
+            self.rendering_model_points(&mut imgs_and_model_points, &mut output);
+            self.rendering_black_fill(&mut output);
+            self.rendering_number(&mut output);
+            self.rendering_vx(&mut output);
+            self.rendering_barcode(&mut output);
+        }
 
         (output, imgs_and_model_points)
     }
@@ -71,10 +81,7 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                 h: img_and_model_points.img.rgb.height() as i32,
             }
         );
-        #[cfg(debug_assertions)]
-        {
-            let mut render_image = img_and_model_points.img.rgb.clone();
-        }
+
         // 构建坐标转换需要用到的参照定位点
         let reference_model_points = ReferenceModelPoints{
             model_points: &page.model_points_4.expect("model_points_4 is None"),
@@ -111,22 +118,10 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                 option_out.value = res;
                 #[cfg(debug_assertions)]
                 {
-                    // 渲染
-                    draw_filled_circle_mut(&mut render_image, (real_coordinate.x, real_coordinate.y), 5, Rgb([0,0,255]));
-                    draw_filled_circle_mut(&mut render_image, (real_coordinate.x+real_coordinate.w, real_coordinate.y+real_coordinate.h), 5, Rgb([0,0,255]));
                     option_out.coordinate = Some(real_coordinate);
                 }
                 
             }
-        }
-        #[cfg(debug_assertions)]
-        {
-            // 渲染定位点
-            for p in img_and_model_points.real_model_points.iter(){
-                draw_filled_circle_mut(&mut render_image, (p.x, p.y), 5, Rgb([0,0,255]));
-                draw_filled_circle_mut(&mut render_image, (p.x+p.w, p.y+p.h), 5, Rgb([0,0,255]));
-            }
-            page_out.image_rendering = Some(image_to_base64(&render_image));
         }
     }
 }
