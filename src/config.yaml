@@ -2,9 +2,11 @@ image_process:
   gaussian_blur_sigma: 1.0
   binarization_threshold: 180
   morphology_kernel: 5
+  empty_image_threshold: 253
 image_baizheng:
   page_number_diff: 0.21
   model_point_wh_cosine_similarity: 0.985
+  model_point_diff: 50
 recognize_type:
   black_fill: 1
   vx: 2

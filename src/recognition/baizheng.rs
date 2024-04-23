@@ -3,15 +3,20 @@
 use std::f32::consts::PI;
 use std::collections::HashMap;
 
+use anyhow::Result;
 use image::ImageBuffer;
 use image::Luma;
+use image::Rgb;
 use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
+use imageproc::drawing::draw_filled_circle_mut;
 use imageproc::integral_image::sum_image_pixels;
+use rxing::datamatrix::decoder::Version;
 
 use crate::models::engine_rec::ProcessedImages;
 use crate::models::engine_rec::ReferenceModelPoints;
 use crate::models::engine_rec::{ProcessedImagesAndModelPoints, RecInfoBaizheng};
+use crate::models::my_error::MyError;
 use crate::models::rec_result::ImageStatus;
 use crate::models::rec_result::OutputRec;
 use crate::models::rec_result::PageSize;
@@ -20,6 +25,7 @@ use crate::models::scan_json::PageNumberPoint;
 use crate::models::scan_json::{Coordinate, ModelSize};
 use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
+use crate::my_utils::math::points4_is_valid;
 use crate::my_utils::math::{cosine_similarity, euclidean_distance};
 use crate::config::CONFIG;
 use crate::my_utils::node::print2node;
@@ -28,6 +34,7 @@ use super::engine::Engine;
 
 pub trait Baizheng{
     fn baizheng_and_match_page(&self, input_images: &InputImage, output: &mut OutputRec) -> Vec<Option<ProcessedImagesAndModelPoints>>;
+    fn rendering_model_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
 }
 
 
@@ -41,10 +48,9 @@ impl Baizheng for Engine {
             let mean_pixel = sum_image_pixels(
                 &img.integral_gray, 0, 0, img.morphology.width()-1, img.morphology.height()-1
             )[0]/((img.morphology.width() * img.morphology.height()) as i64);
-            if mean_pixel > 253{continue;}
+            if mean_pixel > CONFIG.image_process.empty_image_threshold as i64{continue;}
             imgs.push(img);
         }
-        let imgs_len = imgs.len();
         // 获取定位点wh，用于筛选定位点
         // todo: 后期可以抽象一下，目前只想到这一个
         let location_wh = (
@@ -57,26 +63,35 @@ impl Baizheng for Engine {
         let mut imgs_and_model_points = Vec::new();
         for mut img in imgs.iter_mut(){
             let coordinates = generate_location_and_rotate(img, location_wh);
-            imgs_and_model_points.push(
-                ProcessedImagesAndModelPoints{
-                    img: img.clone(),
-                    real_model_points: coordinates,
+            match coordinates{
+                // 找到定位点
+                Ok(coordinates) => {
+                    imgs_and_model_points.push(
+                        ProcessedImagesAndModelPoints{
+                            img: img.clone(),
+                            real_model_points: coordinates,
+                        }
+                    );
                 }
-            );
+                // 如果寻找定位点失败，直接把图片置为失败状态
+                Err(_err) => {
+                    let _base64 = img.org.as_ref().expect("org is None");
+                    let mut image_status = ImageStatus {
+                        image_source: _base64.clone(),
+                        code: 1,
+                        page_size: PageSize {
+                            w: img.rgb.width() as i32,
+                            h: img.rgb.height() as i32,
+                        },
+                    };
+                    output.images.push(image_status);
+                }
+            };
         }
-        // 下面是判断图片是否需要180旋转
-        // 生成每个图结构的旋转180副本
-        let mut imgs_and_model_points_contains_180 = Vec::new();
-        for img in imgs_and_model_points{
-            let mut img_180 = img.clone();
-            rotate_img_and_model_points_180(&mut img_180);
-            imgs_and_model_points_contains_180.push(img);
-            imgs_and_model_points_contains_180.push(img_180);
-        }
-
+        
         // 初始化匹配成功的标记
         let mut is_match_dict: HashMap<usize, bool> = HashMap::new();
-        for i in (0..imgs_len){
+        for i in (0..imgs_and_model_points.len()){
             is_match_dict.insert(i, false);
         }
 
@@ -85,8 +100,9 @@ impl Baizheng for Engine {
         let scan_size = self.get_scan_data().pages.len();
         let mut processed_images_res: Vec<Option<ProcessedImagesAndModelPoints>> = vec![None;scan_size];
 
+        // 遍历第一遍原方向的图片
         for (index_scan,page) in self.get_scan_data().pages.iter().enumerate(){
-            for (index_image, img_and_model_points) in imgs_and_model_points_contains_180.iter().enumerate(){
+            for (index_image, img_and_model_points) in imgs_and_model_points.iter().enumerate(){
                 let match_info = RecInfoBaizheng{
                     model_size: &page.model_size,
                     page_number_points: &page.page_number_points,
@@ -96,13 +112,62 @@ impl Baizheng for Engine {
                 if flag{
                     let img_and_model_points = img_and_model_points.clone();
                     processed_images_res[index_scan] = Some(img_and_model_points.clone());
-                    is_match_dict.insert(index_image/2, true);
+                    is_match_dict.insert(index_image, true);
                     break
                 }
             }
         }
+
+        // 挑选第一遍中没有匹配上的图翻转180
+        // 并把第一遍成功匹配的图片写到输出中
+        let mut imgs_and_model_points_180 = Vec::new();
         for (index, flag) in is_match_dict.iter() {
-            let _base64 = imgs[*index].org.as_ref().expect("org is None");
+            if *flag {
+                let _base64 = imgs_and_model_points[*index].img.org.as_ref().expect("org is None");
+                let _img = trans_base64_to_image(&_base64);
+                let mut image_status = ImageStatus {
+                    image_source: _base64.clone(),
+                    code: 0,
+                    page_size: PageSize {
+                        w: _img.width() as i32,
+                        h: _img.height() as i32,
+                    },
+                };
+                output.images.push(image_status);
+                continue
+            }
+            let mut img_180 = imgs_and_model_points[*index].clone();
+            rotate_img_and_model_points_180(&mut img_180);
+            imgs_and_model_points_180.push(img_180);
+        }
+
+        // 初始化匹配成功的标记
+        let mut is_match_dict: HashMap<usize, bool> = HashMap::new();
+        for i in (0..imgs_and_model_points_180.len()){
+            is_match_dict.insert(i, false);
+        }
+
+        // 第二次遍历翻转180的剩余图片
+        for (index_scan,page) in self.get_scan_data().pages.iter().enumerate(){
+            if !matches!(processed_images_res[index_scan],None){continue;}
+            for (index_image, img_and_model_points) in imgs_and_model_points_180.iter().enumerate(){
+                let match_info = RecInfoBaizheng{
+                    model_size: &page.model_size,
+                    page_number_points: &page.page_number_points,
+                    model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
+                };
+                let flag = match_page_and_img(&match_info, &img_and_model_points);
+                if flag{
+                    let img_and_model_points = img_and_model_points.clone();
+                    processed_images_res[index_scan] = Some(img_and_model_points.clone());
+                    is_match_dict.insert(index_image, true);
+                    break
+                }
+            }
+        }
+        // 把剩余的180翻转图片匹配情况写入结果
+        for (index, flag) in is_match_dict.iter() {
+            let _base64 = imgs_and_model_points_180[*index].img.org.as_ref().expect("org is None");
             let _img = trans_base64_to_image(&_base64);
             let mut image_status = ImageStatus {
                 image_source: _base64.clone(),
@@ -116,6 +181,20 @@ impl Baizheng for Engine {
         }
 
         processed_images_res
+    }
+
+    fn rendering_model_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
+        for (index,(img_and_model_points, page)) in imgs_and_model_points.iter().zip(output.pages.iter_mut()).enumerate(){
+            if matches!(img_and_model_points, None){continue;}
+            let rendering = trans_base64_to_image(&page.image_rotated.as_ref().expect("image_rendering is None"));
+            let mut rendering = rendering.to_rgb8();
+            for point in img_and_model_points.as_ref().unwrap().real_model_points.iter(){
+                draw_filled_circle_mut(&mut rendering,(point.x,point.y),3, Rgb([0,0,255]));
+                draw_filled_circle_mut(&mut rendering,(point.x+point.w,point.y+point.h),3, Rgb([0,0,255]));
+            }
+            let img_base64 = image_to_base64(&rendering);
+            page.image_rendering = Some(img_base64);
+        }
     }
 }
 
@@ -132,7 +211,7 @@ pub fn rotate_processed_image_90(model_size: &ModelSize, img: &mut ProcessedImag
 
 /// 靠图片寻找定位点并进行小角度摆正
 /// 输出四个定位点并小角度摆正输入的图片
-fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i32)) -> [Coordinate;4]{
+fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i32)) -> Result<[Coordinate;4]>{
     // todo: 定位点过滤补丁，后面需要优化
     let w = img.rgb.width();
     let lt_x_must_less = ((w as f32) / (4 as f32)) as i32;
@@ -189,6 +268,15 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         }
     }
 
+    if !points4_is_valid(
+        [
+            (lt.x,lt.y),
+            (rt.x,rt.y),
+            (ld.x,ld.y),
+            (rd.x,rd.y),
+        ]
+    ) {return Err(MyError::ErrorModelPointNotFound.into());}
+
     // println!("{lt:?}");
     // println!("{rt:?}");
     // println!("{ld:?}");
@@ -219,7 +307,7 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         let (new_x, new_y) = rotate_point(&MyPoint{x:point.x,y:point.y}, &center, -angle_radians1);
         points[i] = Coordinate{x:new_x,y:new_y,w:point.w,h:point.h};
     }
-    points
+    Ok(points)
 }
 
 

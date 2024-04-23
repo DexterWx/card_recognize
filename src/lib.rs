@@ -34,26 +34,24 @@ mod tests {
         // 引擎初始化
         let engine = Engine::new(input_scan);
         // 识别
-        let (output, imgs_and_model_points) = engine.recognize(&input_images);
+        let (mut output, imgs_and_model_points) = engine.recognize(&input_images);
 
 
         let out_json_path = format!("dev/test_data/{test_id}.json");
         let mut file = File::create(out_json_path)?;
         serde_json::to_writer(&mut file, &output)?;
 
-        // 可视化
-        for (index,(img_and_model_points, page)) in imgs_and_model_points.iter().zip(output.pages).enumerate(){
-            if matches!(img_and_model_points, None){continue;}
+        for (index,page) in output.pages.iter().enumerate(){
             if matches!(page.image_rendering, None){continue;}
-            let mut rendering = trans_base64_to_image(&page.image_rendering.expect("image_rendering is None"));
-            let out_img_path = format!("dev/test_data/output_view_{index}.jpg");
-            rendering.to_rgb8().save(out_img_path);
+            let img = page.image_rendering.as_ref().unwrap();
+            let img = trans_base64_to_image(img);
+            let path = format!("dev/test_data/output_rendering_{index}.jpg");
+            img.to_rgb8().save(path);
         }
 
-        for (index,img) in output.images.iter().enumerate(){
-            let img = trans_base64_to_image(&img.image_source);
-            let out_img_path = format!("dev/test_data/output_view_image_status_{index}.jpg");
-            img.to_rgb8().save(out_img_path);
+        // 图片code
+        for (index,image) in output.images.iter().enumerate(){
+            println!("{:?}",image.code); 
         }
 
         Ok(())

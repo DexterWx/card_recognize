@@ -58,3 +58,12 @@ pub mod engine_rec{
     }
 }
 
+
+pub mod my_error{
+    use thiserror::Error;
+    #[derive(Error, Debug)]
+    pub enum MyError {
+        #[error("没有找到定位点")]
+        ErrorModelPointNotFound,
+    }
+}
