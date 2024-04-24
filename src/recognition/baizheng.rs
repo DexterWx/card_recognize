@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 use std::collections::HashMap;
 
 use anyhow::Result;
+use image::DynamicImage;
 use image::ImageBuffer;
 use image::Luma;
 use image::Rgb;
@@ -291,23 +292,124 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
     // 后面可以增加一种对定位点位置的判断，猜测纸张是否可能被折过
     // 如果被折过，使用左侧两点后右侧两点分别对办张图片摆正，两边的框分开定位。
     let angle_radians1 = (rt.y as f32 - lt.y as f32).atan2(rt.x as f32 - lt.x as f32);
-    // let angle_radians2 = (ld.y as f32 - lt.y as f32).atan2(ld.x as f32 - lt.x as f32);
+    let angle_radian = -angle_radians1;
+
+    println!("{:?}",lt.w);
+    println!("{:?}",lt.h);
 
     // 旋转之前保存中心点
     let center = MyPoint{x:(img.rgb.width()/2) as i32, y:(img.rgb.height()/2) as i32};
 
     // 对图像进行旋转
-    rotate_processed_image(img, -angle_radians1);
+    rotate_processed_image(img, angle_radian);
 
     // 对定位点进行旋转
     let mut points: [Coordinate;4] = [Coordinate{x:0,y:0,w:0,h:0};4];
     for (i,point) in [lt, rt, ld, rd].iter().enumerate(){
-        let (new_x, new_y) = rotate_point(&MyPoint{x:point.x,y:point.y}, &center, -angle_radians1);
+        let (new_x, new_y) = rotate_point(&MyPoint{x:point.x,y:point.y}, &center, angle_radian);
         points[i] = Coordinate{x:new_x,y:new_y,w:point.w,h:point.h};
     }
+
+    // 精细纠正定位框
+    fix_locations_coordinate(img, &mut points);
+
     Ok(points)
 }
 
+fn fix_locations_coordinate(img: &ProcessedImages, coordinates: &mut [Coordinate; 4]){
+    for coor in coordinates.iter_mut(){
+        fix_location_coordinate(img, coor);
+    }
+}
+
+fn fix_location_coordinate(img: &ProcessedImages, coordinate: &mut Coordinate){
+    let point = MyPoint{
+        x: coordinate.x,
+        y: coordinate.y,
+    };
+    let fix_point = fix_location_point_lt(img, &point);
+    coordinate.x = fix_point.x;
+    coordinate.y = fix_point.y;
+
+    let point = MyPoint{
+        x: coordinate.x + coordinate.w,
+        y: coordinate.y + coordinate.h,
+    };
+    let fix_point = fix_location_point_rd(img, &point);
+    coordinate.w = fix_point.x - coordinate.x;
+    coordinate.h = fix_point.y - coordinate.y;
+}
+
+fn fix_location_point_lt(img: &ProcessedImages, point: &MyPoint) -> MyPoint {
+    let max_decrease = 0;
+    for i in 0..5 {
+        let sum_pix_h = sum_image_pixels(
+            &img.integral_gray,
+            point.x as u32 + i,
+            point.y as u32,
+            point.x as u32 + i,
+            point.y as u32 + 9
+        )[0] / 10;
+    }
+    let sum_pix_w = sum_image_pixels(
+        &img.integral_gray,
+        point.x as u32,
+        point.y as u32,
+        point.x as u32 + 7,
+        point.y as u32
+    )[0] / 8;
+    println!("lt_sum_pix_w: {:?}", sum_pix_w);
+    // println!("lt_sum_pix_h: {:?}", sum_pix_h);
+
+    let mut img_rgb = img.rgb.clone();
+    draw_filled_circle_mut(&mut img_rgb, (point.x, point.y), 2, Rgb([0,0,255]));
+    let img_dy = DynamicImage::from(img_rgb);
+    let _coor = Coordinate{
+        x: point.x - 10,
+        y: point.y - 10,
+        w: 20,
+        h: 20
+    };
+    let img_crop = crop_image(&img_dy, &_coor);
+    // let path = format!("dev/test_data/output_rendering_crop_{sum_pix_w}_{sum_pix_h}.jpg");
+    // img_crop.to_rgb8().save(path);
+
+    point.clone()
+}
+
+fn fix_location_point_rd(img: &ProcessedImages, point: &MyPoint) -> MyPoint {
+    let sum_pix_h = sum_image_pixels(
+        &img.integral_gray,
+        point.x as u32,
+        point.y as u32 - 9,
+        point.x as u32,
+        point.y as u32
+    )[0] / 10;
+    let sum_pix_w = sum_image_pixels(
+        &img.integral_gray,
+        point.x as u32 - 7,
+        point.y as u32,
+        point.x as u32,
+        point.y as u32
+    )[0] / 8;
+    println!("rd_sum_pix_w: {:?}", sum_pix_w);
+    println!("rd_sum_pix_h: {:?}", sum_pix_h);
+
+
+    let mut img_rgb = img.rgb.clone();
+    draw_filled_circle_mut(&mut img_rgb, (point.x, point.y), 2, Rgb([0,0,255]));
+    let img_dy = DynamicImage::from(img_rgb);
+    let _coor = Coordinate{
+        x: point.x - 10,
+        y: point.y - 10,
+        w: 20,
+        h: 20
+    };
+    let img_crop = crop_image(&img_dy, &_coor);
+    let path = format!("dev/test_data/output_rendering_crop_{sum_pix_w}_{sum_pix_h}.jpg");
+    img_crop.to_rgb8().save(path);
+    point.clone()
+}
 
 /// 输入的图片已经是经过小角度摆正+90度摆正的图片
 /// 该函数根据页面点的向量距离对page和image进行匹配
