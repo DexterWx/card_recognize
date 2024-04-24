@@ -11,7 +11,6 @@ use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
 use imageproc::drawing::draw_filled_circle_mut;
 use imageproc::integral_image::sum_image_pixels;
-use rxing::datamatrix::decoder::Version;
 
 use crate::models::engine_rec::ProcessedImages;
 use crate::models::engine_rec::ReferenceModelPoints;
@@ -28,7 +27,6 @@ use crate::models::card::MyPoint;
 use crate::my_utils::math::points4_is_valid;
 use crate::my_utils::math::{cosine_similarity, euclidean_distance};
 use crate::config::CONFIG;
-use crate::my_utils::node::print2node;
 
 use super::engine::Engine;
 
@@ -61,7 +59,7 @@ impl Baizheng for Engine {
         // 并根据定位点进行小角度摆正
         // 将img和定位点组成后续公用的图结构ProcessedImagesAndModelPoints
         let mut imgs_and_model_points = Vec::new();
-        for mut img in imgs.iter_mut(){
+        for img in imgs.iter_mut(){
             let coordinates = generate_location_and_rotate(img, location_wh);
             match coordinates{
                 // 找到定位点
@@ -76,7 +74,7 @@ impl Baizheng for Engine {
                 // 如果寻找定位点失败，直接把图片置为失败状态
                 Err(_err) => {
                     let _base64 = img.org.as_ref().expect("org is None");
-                    let mut image_status = ImageStatus {
+                    let image_status = ImageStatus {
                         image_source: _base64.clone(),
                         code: 1,
                         page_size: PageSize {
@@ -91,7 +89,7 @@ impl Baizheng for Engine {
         
         // 初始化匹配成功的标记
         let mut is_match_dict: HashMap<usize, bool> = HashMap::new();
-        for i in (0..imgs_and_model_points.len()){
+        for i in 0..imgs_and_model_points.len() {
             is_match_dict.insert(i, false);
         }
 
@@ -125,7 +123,7 @@ impl Baizheng for Engine {
             if *flag {
                 let _base64 = imgs_and_model_points[*index].img.org.as_ref().expect("org is None");
                 let _img = trans_base64_to_image(&_base64);
-                let mut image_status = ImageStatus {
+                let image_status = ImageStatus {
                     image_source: _base64.clone(),
                     code: 0,
                     page_size: PageSize {
@@ -143,7 +141,7 @@ impl Baizheng for Engine {
 
         // 初始化匹配成功的标记
         let mut is_match_dict: HashMap<usize, bool> = HashMap::new();
-        for i in (0..imgs_and_model_points_180.len()){
+        for i in 0..imgs_and_model_points_180.len() {
             is_match_dict.insert(i, false);
         }
 
@@ -169,7 +167,7 @@ impl Baizheng for Engine {
         for (index, flag) in is_match_dict.iter() {
             let _base64 = imgs_and_model_points_180[*index].img.org.as_ref().expect("org is None");
             let _img = trans_base64_to_image(&_base64);
-            let mut image_status = ImageStatus {
+            let image_status = ImageStatus {
                 image_source: _base64.clone(),
                 code: if *flag { 0 } else { 1 },
                 page_size: PageSize {
@@ -184,7 +182,7 @@ impl Baizheng for Engine {
     }
 
     fn rendering_model_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
-        for (index,(img_and_model_points, page)) in imgs_and_model_points.iter().zip(output.pages.iter_mut()).enumerate(){
+        for (_index,(img_and_model_points, page)) in imgs_and_model_points.iter().zip(output.pages.iter_mut()).enumerate(){
             if matches!(img_and_model_points, None){continue;}
             let rendering = trans_base64_to_image(&page.image_rotated.as_ref().expect("image_rendering is None"));
             let mut rendering = rendering.to_rgb8();
