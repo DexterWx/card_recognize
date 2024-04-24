@@ -28,3 +28,9 @@ rust-1.76.0-test:
   tags:
     - docker
 
+.parallel:
+  matrix:
+    - JOB: lint
+    - JOB: test
+
+
