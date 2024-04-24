@@ -42,7 +42,7 @@ impl RecBlackFill for Engine {
     return Some(Value::Float(filled_ratio));
   }
 
-  fn rendering_black_fill(&self, output: &mut OutputRec) {
+  fn rendering_black_fill(&self, _output: &mut OutputRec) {
         
   }
 }
