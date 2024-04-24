@@ -11,7 +11,6 @@ use crate::models::engine_rec::{ProcessedImages, ReferenceModelPoints};
 use crate::models::scan_json::ModelSize;
 use crate::{config::CONFIG, models::{card::MyPoint, scan_json::Coordinate}};
 use super::math::*;
-use anyhow::{Result,Ok};
 use image_base64_wasm::from_base64;
 use image_base64_wasm::vec_to_base64;
 

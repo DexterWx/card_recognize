@@ -8,11 +8,11 @@ pub trait RecNumber{
 }
 
 impl RecNumber for Engine {
-    fn rec_number(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value> {
+    fn rec_number(&self, _img: &ProcessedImages, _coordinate: &Coordinate) -> Option<Value> {
         None
     }
 
-    fn rendering_number(&self, output: &mut OutputRec) {
+    fn rendering_number(&self, _output: &mut OutputRec) {
         
     }
 }

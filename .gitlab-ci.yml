@@ -3,7 +3,20 @@ image: registry.17zuoye.net:5000/card/rust:latest
 stages:
   - test
 
-rust-1.76.0:
+rust-1.76.0-lint:
+  stage: test
+  script:
+    - source ~/.bashrc
+    - . "$HOME/.cargo/env"
+    - rustc -V
+    # 检查警告
+    - cargo check --message-format=json | jq -r 'select(.reason == "compiler-message") | select(.message.level == "warning") | .message | .message' > warnings.txt
+    - if test -s warnings.txt; then cat warnings.txt && exit 1; fi
+  allow_failure: false
+  tags:
+    - docker
+
+rust-1.76.0-test:
   stage: test
   script:
     - source ~/.bashrc
@@ -13,4 +26,5 @@ rust-1.76.0:
   allow_failure: false
   tags:
     - docker
+
 
