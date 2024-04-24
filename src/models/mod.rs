@@ -17,7 +17,7 @@ pub mod card{
 /// 定义引擎各种识别方法所需的结构体
 /// 将每个方法所需要用到的字段整理成对应的结构体
 pub mod engine_rec{
-    use image::{GrayImage, ImageBuffer, Luma, Rgb, RgbImage};
+    use image::{GrayImage, ImageBuffer, Luma, RgbImage};
 
     use super::scan_json::{Coordinate, ModelPoint, ModelSize, PageNumberPoint};
 

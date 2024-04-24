@@ -1,15 +1,15 @@
-use std::fs::read_link;
 
-use image::{DynamicImage, Rgb};
-use image_base64_wasm::to_base64;
-use imageproc::drawing::draw_filled_circle_mut;
 
-use crate::models::scan_json::{self, Coordinate, InputImage};
+
+
+
+
+use crate::models::scan_json::{self, InputImage};
 use crate::config::CONFIG;
 
 use crate::models::engine_rec::ReferenceModelPoints;
 use crate::models::rec_result::{OutputRec, PageSize, Value};
-use crate::my_utils::image::{generate_real_coordinate_with_model_points, image_to_base64, trans_base64_to_image};
+use crate::my_utils::image::{generate_real_coordinate_with_model_points, image_to_base64};
 use crate::models::engine_rec::ProcessedImagesAndModelPoints;
 use crate::recognition::barcode::RecBarcode;
 use crate::recognition::black_fill::RecBlackFill;
