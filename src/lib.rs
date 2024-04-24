@@ -1,3 +1,8 @@
+#![deny(clippy::all)]
+
+#[macro_use]
+extern crate napi_derive;
+
 pub mod recognition;
 pub mod models;
 pub mod my_utils;
@@ -5,6 +10,7 @@ pub mod config;
 
 #[cfg(test)]
 mod tests {
+    
     use std::fs::File;
     use std::io::Read;
     use std::fs;
@@ -34,7 +40,7 @@ mod tests {
         // 引擎初始化
         let engine = Engine::new(input_scan);
         // 识别
-        let (mut output, imgs_and_model_points) = engine.recognize(&input_images);
+        let (output, _imgs_and_model_points) = engine.recognize(&input_images);
 
 
         let out_json_path = format!("dev/test_data/{test_id}.json");
@@ -50,7 +56,7 @@ mod tests {
         }
 
         // 图片code
-        for (index,image) in output.images.iter().enumerate(){
+        for (_index,image) in output.images.iter().enumerate(){
             println!("{:?}",image.code); 
         }
 
@@ -103,37 +109,37 @@ mod tests {
 }
 
 
+pub mod build{
+    use crate::{models, recognition};
 
+    use models::scan_json::{InputImage, InputScan};
+    use recognition::engine::Engine;
 
-use models::scan_json::{InputImage, InputScan};
-use recognition::engine::Engine;
-use wasm_bindgen::prelude::*;
+    // 全局变量的引擎结构体
+    static mut ENGINE: Option<Engine> = None;
 
-// 全局变量的引擎结构体
-static mut ENGINE: Option<Engine> = None;
-
-#[wasm_bindgen]
-pub fn initialize(input_json: &str){
-    println!("{:?}",input_json);
-    let input_scan: InputScan = serde_json::from_str(input_json).expect("Parse Input Failed");
-    let input_scan = input_scan.renew();
-    // 进行一些初始化操作
-    unsafe {
-        ENGINE = Some(Engine::new(input_scan));
+    #[napi]
+    pub fn initialize(input_json: String){
+        let input_scan: InputScan = serde_json::from_str(&input_json).expect("Parse Input Failed");
+        let input_scan = input_scan.renew();
+        // 进行一些初始化操作
+        unsafe {
+            ENGINE = Some(Engine::new(input_scan));
+        }
     }
-}
 
-#[wasm_bindgen]
-pub fn inference(input_json:&str) -> String {
-    unsafe {
-        // 检查引擎是否已初始化
-        let engine = ENGINE.as_ref().expect("Engine not initialized");
+    #[napi]
+    pub fn inference(input_json:String) -> String {
+        unsafe {
+            // 检查引擎是否已初始化
+            let engine = ENGINE.as_ref().expect("Engine not initialized");
 
-        let input_image: InputImage = serde_json::from_str(input_json).expect("Parse Input Failed");
-        let result = engine.recognize(&input_image);
-        let output_json = result.0;
+            let input_image: InputImage = serde_json::from_str(&input_json).expect("Parse Input Failed");
+            let result = engine.recognize(&input_image);
+            let output_json = result.0;
 
-        // 使用 serde_json 将结果序列化为 JSON 字符串
-        serde_json::to_string(&output_json).expect("Failed to serialize JSON")
+            // 使用 serde_json 将结果序列化为 JSON 字符串
+            serde_json::to_string(&output_json).expect("Failed to serialize JSON")
+        }
     }
 }

@@ -7,11 +7,11 @@ pub trait RecVX{
 }
 
 impl RecVX for Engine {
-    fn rec_vx(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value> {
+    fn rec_vx(&self, _img: &ProcessedImages, _coordinate: &Coordinate) -> Option<Value> {
         None
     }
 
-    fn rendering_vx(&self, output: &mut OutputRec) {
+    fn rendering_vx(&self, _output: &mut OutputRec) {
         
     }
 }

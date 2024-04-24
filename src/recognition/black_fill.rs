@@ -24,7 +24,7 @@ impl RecBlackFill for Engine {
     )[0];
     let mean_pixel = sum_pixels / (rect.width() * rect.height()) as i64;
     let filled_ratio = 1.0 - mean_pixel as f32 / 255f32;
-    println!("====={:?}所在区域填涂比{}=====", coordinate,filled_ratio);     
+    // println!("====={:?}所在区域填涂比{}=====", coordinate,filled_ratio);     
 
     return Some(Value::Float(filled_ratio));
   }
@@ -39,9 +39,6 @@ impl RecBlackFill for Engine {
     //     Rgb([255u8, 0u8, 0u8]),  
     // );
 
-
-
-    
       
       // let rendering = trans_base64_to_image(&page.image_rotated.as_ref().expect("image_rendering is None"));
       // let mut rendering = rendering.to_rgb8();
@@ -50,7 +47,7 @@ impl RecBlackFill for Engine {
       //     draw_filled_circle_mut(&mut rendering,(point.x+point.w,point.y+point.h),3, Rgb([0,0,255]));
       // }
       // let img_base64 = image_to_base64(&rendering);
-      // page.image_rendering = Some(img_base64);
-    
+      // page.image_rendering = Some(img_base64);   
+
   }
 }

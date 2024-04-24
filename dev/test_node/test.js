@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { initialize, inference } = require('../../pkg/card_recognize.js');
+const { initialize, inference } = require('../../index.js');
 
 // 构造文件路径（跨平台）
 const filePath = path.join(__dirname, '../test_data/cards/194751/scan.json');
@@ -33,8 +33,5 @@ fs.readFile(filePath, 'utf8', (err, data) => {
   const jsonString_iamge = JSON.stringify(inputImage);
   console.time('myTimer');
   const result = inference(jsonString_iamge);
-  console.log(result);
   console.timeEnd('myTimer');
-  
-  // console.log(result); 
 });

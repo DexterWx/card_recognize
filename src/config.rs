@@ -41,16 +41,16 @@ pub struct Config {
 }
 
 // 全局配置单例
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(debug_assertions)]
 pub static CONFIG: Lazy<Config> = Lazy::new(|| {
     // 读取配置文件
-    let file = File::open("src/config.yaml").expect("Failed to open config file");
+    let file = File::open("config.yaml").expect("Failed to open config file");
     let reader = BufReader::new(file);
     serde_yaml::from_reader(reader).expect("Failed to parse config")
 });
 
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(not(debug_assertions))]
 pub static CONFIG: Config = Config{
     image_process: ImageProcess{
         gaussian_blur_sigma: 1.0,

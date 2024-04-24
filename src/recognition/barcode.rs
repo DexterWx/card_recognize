@@ -60,7 +60,7 @@ impl RecBarcode for Engine {
         }
     }
 
-    fn rendering_barcode(&self, output: &mut OutputRec) {
+    fn rendering_barcode(&self, _output: &mut OutputRec) {
         
     }
 }
