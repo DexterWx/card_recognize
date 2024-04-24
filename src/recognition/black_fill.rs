@@ -1,9 +1,8 @@
 use imageproc::integral_image::sum_image_pixels;
 use imageproc::rect::Rect;
 use crate::{models::{engine_rec::ProcessedImages, rec_result::{OutputRec, Value}, scan_json::Coordinate}, recognition::engine::Engine};
-// use std::env;
-// use imageproc::drawing::draw_filled_rect_mut;
-// use image::Rgb;
+use imageproc::drawing::draw_filled_rect_mut;
+use image::Rgb;
 
 pub trait RecBlackFill{
   /// 填涂识别
@@ -27,22 +26,31 @@ impl RecBlackFill for Engine {
     let filled_ratio = 1.0 - mean_pixel as f32 / 255f32;
     println!("====={:?}所在区域填涂比{}=====", coordinate,filled_ratio);     
 
-    // 绘制填涂区域
-    // let mut img_rgb_painting = img.rgb.clone();
-    // draw_filled_rect_mut(
-    //     &mut img_rgb_painting,   
-    //     Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32),    
-    //     Rgb([255u8, 0u8, 0u8]),  
-    // );
-
-    // let cwd = env::current_dir().unwrap();
-    // let str = format!("dev/test_data/rec_black_fill/{}_{}_{}_{}.jpg", coordinate.x,coordinate.y,coordinate.w,coordinate.h);
-    // let path = cwd.join(str);
-    // img_rgb_painting.save(path).unwrap();
     return Some(Value::Float(filled_ratio));
   }
 
   fn rendering_black_fill(&self, output: &mut OutputRec) {
-        
+
+    // 绘制填涂区域
+    // let mut img_rgb_rendering = img.rgb.clone();
+    // draw_filled_rect_mut(
+    //     &mut img_rgb_rendering,   
+    //     Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32),    
+    //     Rgb([255u8, 0u8, 0u8]),  
+    // );
+
+
+
+    
+      
+      // let rendering = trans_base64_to_image(&page.image_rotated.as_ref().expect("image_rendering is None"));
+      // let mut rendering = rendering.to_rgb8();
+      // for point in img_and_model_points.as_ref().unwrap().real_model_points.iter(){
+      //     draw_filled_circle_mut(&mut rendering,(point.x,point.y),3, Rgb([0,0,255]));
+      //     draw_filled_circle_mut(&mut rendering,(point.x+point.w,point.y+point.h),3, Rgb([0,0,255]));
+      // }
+      // let img_base64 = image_to_base64(&rendering);
+      // page.image_rendering = Some(img_base64);
+    
   }
 }
