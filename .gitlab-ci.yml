@@ -14,7 +14,7 @@ rust-1.76.0-lint:
     - if test -s warnings.txt; then cat warnings.txt && exit 1; fi
   allow_failure: false
   tags:
-    - docker
+    - docker-test
 
 rust-1.76.0-test:
   stage: test
@@ -25,6 +25,6 @@ rust-1.76.0-test:
     - cargo test
   allow_failure: false
   tags:
-    - docker
+    - docker-test
 
 
