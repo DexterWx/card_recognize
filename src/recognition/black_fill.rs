@@ -25,7 +25,7 @@ impl RecBlackFill for Engine {
     )[0];
     let mean_pixel = sum_pixels / (rect.width() * rect.height()) as i64;
     let filled_ratio = 1.0 - mean_pixel as f32 / 255f32;
-    println!("====={:?}所在区域填涂比{}=====", coordinate,filled_ratio);     
+    // println!("====={:?}所在区域填涂比{}=====", coordinate,filled_ratio);     
 
     // 绘制填涂区域
     // let mut img_rgb_painting = img.rgb.clone();
