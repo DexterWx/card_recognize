@@ -52,7 +52,7 @@ mod tests {
             let img = page.image_rendering.as_ref().unwrap();
             let img = trans_base64_to_image(img);
             let path = format!("dev/test_data/output_rendering_{index}.jpg");
-            img.to_rgb8().save(path);
+            let _ = img.to_rgb8().save(path);
         }
 
         // 图片code

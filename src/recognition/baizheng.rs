@@ -1,3 +1,5 @@
+use std::cmp::max;
+use std::cmp::min;
 /// 完成图片和scanjson的页匹配+图片摆正
 
 use std::f32::consts::PI;
@@ -178,8 +180,39 @@ impl Baizheng for Engine {
             output.images.push(image_status);
         }
 
+        // 精细修复定位点轮廓
+        for processed_image_and_points in processed_images_res.iter_mut() {
+            if matches!(processed_image_and_points,None){continue;}
+            let processed_image_and_points = processed_image_and_points.as_mut().unwrap();
+            let img = &mut processed_image_and_points.img;
+            let coors = &mut processed_image_and_points.real_model_points;
+            fix_locations_coordinate(img, coors);
+            rotate_img_and_model_points(img, coors);
+        }
+
+        // 查看精细修复后的匹配率
+        #[cfg(debug_assertions)]
+        {
+            for (index_scan,page) in self.get_scan_data().pages.iter().enumerate(){
+                if matches!(processed_images_res[index_scan],None){continue;}
+                for (_index_image, img_and_model_points) in processed_images_res.iter().enumerate(){
+                    let match_info = RecInfoBaizheng{
+                        model_size: &page.model_size,
+                        page_number_points: &page.page_number_points,
+                        model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
+                    };
+                    let flag = match_page_and_img(&match_info, img_and_model_points.as_ref().unwrap());
+                    if flag{
+                        break
+                    }
+                }
+            }
+        }
+
         processed_images_res
     }
+
+
 
     fn rendering_model_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
         for (_index,(img_and_model_points, page)) in imgs_and_model_points.iter().zip(output.pages.iter_mut()).enumerate(){
@@ -194,6 +227,25 @@ impl Baizheng for Engine {
             page.image_rendering = Some(img_base64);
         }
     }
+}
+
+// 根据定位点计算偏转角度
+// todo: 如果答题卡被折过，这种方法会有误差。
+// 后面可以增加一种对定位点位置的判断，猜测纸张是否可能被折过
+// 如果被折过，使用左侧两点后右侧两点分别对办张图片摆正，两边的框分开定位。
+pub fn rotate_img_and_model_points(img: &mut ProcessedImages, mut coors: &mut [Coordinate;4]){
+
+    let angle_radians1 = (coors[1].y as f32 - coors[0].y as f32).atan2(coors[1].x as f32 - coors[0].x as f32);
+    let angle_radian = -angle_radians1;
+
+    // 旋转之前保存中心点
+    let center = MyPoint { x: (img.rgb.width() / 2) as i32, y: (img.rgb.height() / 2) as i32 };
+
+    // 对图像进行旋转
+    rotate_processed_image(img, angle_radian);
+
+    // 对定位点进行旋转
+    rotate_model_points(&mut coors, &center, angle_radian);
 }
 
 /// 根据wh比例决定是否对图片进行90度旋转
@@ -275,39 +327,76 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         ]
     ) {return Err(MyError::ErrorModelPointNotFound.into());}
 
-    // println!("{lt:?}");
-    // println!("{rt:?}");
-    // println!("{ld:?}");
-    // println!("{rd:?}");
-    // let mut image = img.rgb.clone();
-    // draw_filled_circle_mut(&mut image, (lt.x,lt.y), 5, Rgb([0,0,255]));
-    // draw_filled_circle_mut(&mut image, (rt.x,rt.y), 5, Rgb([0,0,255]));
-    // draw_filled_circle_mut(&mut image, (ld.x,ld.y), 5, Rgb([0,0,255]));
-    // draw_filled_circle_mut(&mut image, (rd.x,rd.y), 5, Rgb([0,0,255]));
-    // image.save("dev/test_data/output_view_location.jpg");
+    let mut points = [lt,rt,ld,rd];
+    
+    rotate_img_and_model_points(img, &mut points);
 
-    // 根据定位点计算偏转角度
-    // todo: 如果答题卡被折过，这种方法会有误差。
-    // 后面可以增加一种对定位点位置的判断，猜测纸张是否可能被折过
-    // 如果被折过，使用左侧两点后右侧两点分别对办张图片摆正，两边的框分开定位。
-    let angle_radians1 = (rt.y as f32 - lt.y as f32).atan2(rt.x as f32 - lt.x as f32);
-    // let angle_radians2 = (ld.y as f32 - lt.y as f32).atan2(ld.x as f32 - lt.x as f32);
-
-    // 旋转之前保存中心点
-    let center = MyPoint{x:(img.rgb.width()/2) as i32, y:(img.rgb.height()/2) as i32};
-
-    // 对图像进行旋转
-    rotate_processed_image(img, -angle_radians1);
-
-    // 对定位点进行旋转
-    let mut points: [Coordinate;4] = [Coordinate{x:0,y:0,w:0,h:0};4];
-    for (i,point) in [lt, rt, ld, rd].iter().enumerate(){
-        let (new_x, new_y) = rotate_point(&MyPoint{x:point.x,y:point.y}, &center, -angle_radians1);
-        points[i] = Coordinate{x:new_x,y:new_y,w:point.w,h:point.h};
-    }
     Ok(points)
 }
 
+fn rotate_model_points(points: &mut [Coordinate;4], center: &MyPoint, angle_radian: f32){
+    for i in 0..points.len() {
+        let point = &mut points[i];
+        let (new_x, new_y) = rotate_point(&MyPoint { x: point.x, y: point.y }, &center, angle_radian);
+        point.x = new_x;
+        point.y = new_y;
+    }
+}
+
+fn fix_locations_coordinate(img: &ProcessedImages, coordinates: &mut [Coordinate; 4]){
+    for coor in coordinates.iter_mut(){
+        fix_location_coordinate(img, coor);
+    }
+}
+
+fn fix_location_coordinate(img: &ProcessedImages, coordinate: &mut Coordinate){
+    fix_boundary_top_down(img, coordinate);
+    fix_boundary_left_right(img, coordinate);
+}
+
+fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate){
+    let top = max(coordinate.y - 6,0) as u32;
+    let bottom = min(coordinate.y + coordinate.h + 6, img.rgb.height() as i32) as u32;
+    let left = coordinate.x as u32;
+    let right = (coordinate.x + coordinate.w) as u32;
+    let mut min_decrease = 0;
+    let mut max_increase = 0;
+    let mut _y = coordinate.y + coordinate.h;
+    for i in top+1..bottom{
+        let current = sum_image_pixels(
+            &img.integral_gray, left, i, right, i
+        )[0];
+        let before = sum_image_pixels(
+            &img.integral_gray, left, i-1, right, i-1
+        )[0];
+        let diff = current - before;
+        if diff < min_decrease {min_decrease = diff;coordinate.y = i as i32;}
+        if diff > max_increase {max_increase = diff;_y = (i-1) as i32;}
+    }
+    coordinate.h = _y - coordinate.y;
+}
+
+fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate){
+    let left = max(coordinate.x - 6,0) as u32;
+    let right = min(coordinate.x + coordinate.w + 6, img.rgb.width() as i32) as u32;
+    let top = coordinate.y as u32;
+    let bottom = (coordinate.y + coordinate.h) as u32;
+    let mut min_decrease = 0;
+    let mut max_increase = 0;
+    let mut _x = coordinate.x + coordinate.w;
+    for i in left+1..right{
+        let current = sum_image_pixels(
+            &img.integral_gray, i, top, i, bottom
+        )[0];
+        let before = sum_image_pixels(
+            &img.integral_gray, i-1, top, i-1, bottom
+        )[0];
+        let diff = current - before;
+        if diff < min_decrease {min_decrease = diff;coordinate.x = i as i32;}
+        if diff > max_increase {max_increase = diff;_x = (i-1) as i32;}
+    }
+    coordinate.w = _x - coordinate.x;
+}
 
 /// 输入的图片已经是经过小角度摆正+90度摆正的图片
 /// 该函数根据页面点的向量距离对page和image进行匹配
@@ -339,7 +428,7 @@ fn match_page_and_img(
     return false;
 }
 
-/// 翻转180,会修改原图片,需要提前clone
+/// 翻转180,和普通旋转逻辑不通，因为涉及定位点的位置调换
 fn rotate_img_and_model_points_180(
     img_and_model_points: &mut ProcessedImagesAndModelPoints
 ){
