@@ -1,9 +1,11 @@
-use imageproc::integral_image::sum_image_pixels;
-use imageproc::rect::Rect;
+use crate::config::CONFIG;
 use crate::{models::{engine_rec::ProcessedImages, rec_result::{OutputRec, Value}, scan_json::Coordinate}, recognition::engine::Engine};
-use imageproc::drawing::draw_filled_rect_mut;
+use crate::my_utils::image::*;
 use image::Rgb;
-
+use imageproc::rect::Rect;
+use imageproc::integral_image::sum_image_pixels;
+use imageproc::drawing::draw_filled_rect_mut;
+use std::env;
 pub trait RecBlackFill{
   /// 填涂识别
   fn rec_black_fill(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
@@ -24,30 +26,61 @@ impl RecBlackFill for Engine {
     )[0];
     let mean_pixel = sum_pixels / (rect.width() * rect.height()) as i64;
     let filled_ratio = 1.0 - mean_pixel as f32 / 255f32;
-    // println!("====={:?}所在区域填涂比{}=====", coordinate,filled_ratio);     
+    // println!("==={:?}所在区域填涂比{}===", coordinate,filled_ratio);
 
     return Some(Value::Float(filled_ratio));
   }
 
   fn rendering_black_fill(&self, output: &mut OutputRec) {
+    for (i, page) in output.pages.iter().enumerate() {  
+      let rendering = trans_base64_to_image(&page.image_rendering.as_ref().expect("image_rendering is None"));
+      let mut rendering = rendering.to_rgb8();
+      for recognize in &page.recognizes {  
+        if recognize.rec_type == CONFIG.recognize_type.black_fill {
+          let mut max_filled_ratio_index = None;
+          let mut max_filled_ratio_value = None;
+          for (_index, rec_option) in recognize.rec_options.iter().enumerate() {
+          
+            if let Some(Value::Float(value)) = rec_option.value {  
+              if match max_filled_ratio_value {  
+                  Some(max_value) => value > max_value,  
+                  None => true  
+              } {   
+                  max_filled_ratio_index = Some(_index);
+                  max_filled_ratio_value = Some(value);
+              }
+            }
+          }
+          // 填涂比rec_options中最大，且大于0.5的区域
+          if let Some(max_index) = max_filled_ratio_index {  
+            if max_index as f32 > 0.5 {
+              let coordinate = recognize.rec_options[max_index].coordinate;
+              match coordinate {
+                Some(c) => {
+                  draw_filled_rect_mut(
+                    &mut rendering, 
+                    Rect::at(c.x, c.y).of_size(c.w as u32, c.h as u32), 
+                    Rgb([255u8, 0u8, 0u8]),
+                  );
+                },
+                None => {  
+                  // 异常处理  
+                }  
+              }
+            } 
+          }
+        }
+      }
 
-    // 绘制填涂区域
-    // let mut img_rgb_rendering = img.rgb.clone();
-    // draw_filled_rect_mut(
-    //     &mut img_rgb_rendering,   
-    //     Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32),    
-    //     Rgb([255u8, 0u8, 0u8]),  
-    // );
-
-      
-      // let rendering = trans_base64_to_image(&page.image_rotated.as_ref().expect("image_rendering is None"));
-      // let mut rendering = rendering.to_rgb8();
-      // for point in img_and_model_points.as_ref().unwrap().real_model_points.iter(){
-      //     draw_filled_circle_mut(&mut rendering,(point.x,point.y),3, Rgb([0,0,255]));
-      //     draw_filled_circle_mut(&mut rendering,(point.x+point.w,point.y+point.h),3, Rgb([0,0,255]));
-      // }
       // let img_base64 = image_to_base64(&rendering);
-      // page.image_rendering = Some(img_base64);   
+      // page.image_rendering = Some(img_base64);
+
+      let cwd = env::current_dir().unwrap();
+      let str = format!("dev/test_data/{}.jpg",i);
+      let path = cwd.join(str);
+      rendering.save(path).unwrap();
+
+    }
 
   }
 }
