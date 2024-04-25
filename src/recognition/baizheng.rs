@@ -372,7 +372,6 @@ fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate){
         let diff = current - before;
         if diff < min_decrease {min_decrease = diff;coordinate.y = i as i32;}
         if diff > max_increase {max_increase = diff;_y = (i-1) as i32;}
-        println!("diff: {:?}",diff)
     }
     coordinate.h = _y - coordinate.y;
 }
