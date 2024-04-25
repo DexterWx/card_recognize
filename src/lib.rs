@@ -29,7 +29,7 @@ mod tests {
     fn test_demo() -> Result<()> {
 
         // 直接修改id就可以测试
-        let test_id = "195013";
+        let test_id = "194751";
         let json_path = format!("dev/test_data/cards/{test_id}/scan.json");
         let image_dir = format!("dev/test_data/cards/{test_id}/images");
 
@@ -52,7 +52,7 @@ mod tests {
             let img = page.image_rendering.as_ref().unwrap();
             let img = trans_base64_to_image(img);
             let path = format!("dev/test_data/output_rendering_{index}.jpg");
-            img.to_rgb8().save(path);
+            let _ = img.to_rgb8().save(path);
         }
 
         // 图片code
