@@ -5,7 +5,6 @@ use image::Rgb;
 use imageproc::rect::Rect;
 use imageproc::integral_image::sum_image_pixels;
 use imageproc::drawing::draw_filled_rect_mut;
-use std::env;
 pub trait RecBlackFill{
   /// 填涂识别
   fn rec_black_fill(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
@@ -17,8 +16,14 @@ impl RecBlackFill for Engine {
       
     let rect = Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32);
     //计算图像中区域所有像素值的和
+    let integral_image ;
+    if CONFIG.image_blackfill.image_type == "integral_gray" {
+      integral_image = &img.integral_gray;
+    } else {
+      integral_image = &img.integral_morphology;
+    }
     let sum_pixels = sum_image_pixels(
-      &img.integral_gray,
+      integral_image,
       rect.left() as u32,
       rect.top() as u32,
       (rect.right()-1) as u32,
@@ -32,7 +37,7 @@ impl RecBlackFill for Engine {
   }
 
   fn rendering_black_fill(&self, output: &mut OutputRec) {
-    for (i, page) in output.pages.iter().enumerate() {  
+    for (page_index, page) in output.pages.iter_mut().enumerate() {  
       let rendering = trans_base64_to_image(&page.image_rendering.as_ref().expect("image_rendering is None"));
       let mut rendering = rendering.to_rgb8();
       for recognize in &page.recognizes {  
@@ -53,8 +58,9 @@ impl RecBlackFill for Engine {
           }
           // 填涂比rec_options中最大，且大于0.5的区域
           if let Some(max_index) = max_filled_ratio_index {  
-            if max_index as f32 > 0.5 {
+            if max_index as f32 > CONFIG.image_blackfill.min_filled_ratio {
               let coordinate = recognize.rec_options[max_index].coordinate;
+              println!("===填涂比{:?}===", recognize.rec_options[max_index].value);
               match coordinate {
                 Some(c) => {
                   draw_filled_rect_mut(
@@ -65,21 +71,15 @@ impl RecBlackFill for Engine {
                 },
                 None => {  
                   // 异常处理  
-                }  
+                }
               }
             } 
           }
         }
       }
 
-      // let img_base64 = image_to_base64(&rendering);
-      // page.image_rendering = Some(img_base64);
-
-      let cwd = env::current_dir().unwrap();
-      let str = format!("dev/test_data/{}.jpg",i);
-      let path = cwd.join(str);
-      rendering.save(path).unwrap();
-
+      let img_base64 = image_to_base64(&rendering);
+      page.image_rendering = Some(img_base64);
     }
 
   }
