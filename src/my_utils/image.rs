@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Pixel, Rgb, RgbImage};
+use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use imageproc::morphology::{dilate, erode};
