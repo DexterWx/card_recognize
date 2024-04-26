@@ -56,11 +56,11 @@ impl RecBlackFill for Engine {
               }
             }
           }
-          // 填涂比rec_options中最大，且大于0.5的区域
-          if let Some(max_index) = max_filled_ratio_index {  
-            if max_index as f32 > CONFIG.image_blackfill.min_filled_ratio {
-              let coordinate = recognize.rec_options[max_index].coordinate;
-              println!("===填涂比{:?}===", recognize.rec_options[max_index].value);
+          // 填涂比rec_options中最大，且大于阈值min_filled_ratio的区域
+          if let Some(max_value) = max_filled_ratio_value {  
+            if max_value as f32 > CONFIG.image_blackfill.min_filled_ratio {
+              let coordinate = recognize.rec_options[max_filled_ratio_index.expect("No max_filled_ratio_index provided")].coordinate;
+              println!("===填涂比{:?}===", recognize.rec_options[max_filled_ratio_index.expect("No max_filled_ratio_index provided")].value);
               match coordinate {
                 Some(c) => {
                   draw_filled_rect_mut(
