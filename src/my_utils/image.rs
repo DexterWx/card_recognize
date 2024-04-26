@@ -300,7 +300,6 @@ pub fn crop_image(input_image: &RgbImage, coordinate: &Coordinate) -> RgbImage {
                 cropped_image.put_pixel(x, y, image::Rgb([255, 255, 255]));  
             }  
         }  
-    }  
-  
+    }
     cropped_image
 }
