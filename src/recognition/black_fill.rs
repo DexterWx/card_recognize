@@ -37,7 +37,7 @@ impl RecBlackFill for Engine {
   }
 
   fn rendering_black_fill(&self, output: &mut OutputRec) {
-    for (page_index, page) in output.pages.iter_mut().enumerate() {  
+    for (_page_index, page) in output.pages.iter_mut().enumerate() {  
       let rendering = trans_base64_to_image(&page.image_rendering.as_ref().expect("image_rendering is None"));
       let mut rendering = rendering.to_rgb8();
       for recognize in &page.recognizes {  
