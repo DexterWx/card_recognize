@@ -355,8 +355,8 @@ fn fix_location_coordinate(img: &ProcessedImages, coordinate: &mut Coordinate){
 }
 
 fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate){
-    let top = max(coordinate.y - 6,0) as u32;
-    let bottom = min(coordinate.y + coordinate.h + 6, img.rgb.height() as i32) as u32;
+    let top = max(coordinate.y - CONFIG.image_baizheng.model_point_scan_range,0) as u32;
+    let bottom = min(coordinate.y + coordinate.h + CONFIG.image_baizheng.model_point_scan_range, img.rgb.height() as i32) as u32;
     let left = coordinate.x as u32;
     let right = (coordinate.x + coordinate.w) as u32;
     let mut min_decrease = 0;
@@ -370,15 +370,15 @@ fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate){
             &img.integral_gray, left, i-1, right, i-1
         )[0];
         let diff = current - before;
-        if diff < min_decrease {min_decrease = diff;coordinate.y = i as i32;}
-        if diff > max_increase {max_increase = diff;_y = (i-1) as i32;}
+        if diff < min_decrease && i <= (top+bottom)/2 {min_decrease = diff;coordinate.y = i as i32;}
+        if diff > max_increase && i >= (top+bottom)/2 {max_increase = diff;_y = (i-1) as i32;}
     }
     coordinate.h = _y - coordinate.y;
 }
 
 fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate){
-    let left = max(coordinate.x - 6,0) as u32;
-    let right = min(coordinate.x + coordinate.w + 6, img.rgb.width() as i32) as u32;
+    let left = max(coordinate.x - CONFIG.image_baizheng.model_point_scan_range,0) as u32;
+    let right = min(coordinate.x + coordinate.w + CONFIG.image_baizheng.model_point_scan_range, img.rgb.width() as i32) as u32;
     let top = coordinate.y as u32;
     let bottom = (coordinate.y + coordinate.h) as u32;
     let mut min_decrease = 0;
@@ -392,8 +392,8 @@ fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate){
             &img.integral_gray, i-1, top, i-1, bottom
         )[0];
         let diff = current - before;
-        if diff < min_decrease {min_decrease = diff;coordinate.x = i as i32;}
-        if diff > max_increase {max_increase = diff;_x = (i-1) as i32;}
+        if diff < min_decrease && i <= (left+right)/2 {min_decrease = diff;coordinate.x = i as i32;}
+        if diff > max_increase && i >= (left+right)/2 {max_increase = diff;_x = (i-1) as i32;}
     }
     coordinate.w = _x - coordinate.x;
 }

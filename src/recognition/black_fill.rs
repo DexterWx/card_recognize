@@ -38,6 +38,7 @@ impl RecBlackFill for Engine {
 
   fn rendering_black_fill(&self, output: &mut OutputRec) {
     for (_page_index, page) in output.pages.iter_mut().enumerate() {  
+      if matches!(page.image_rendering, None){continue;}
       let rendering = trans_base64_to_image(&page.image_rendering.as_ref().expect("image_rendering is None"));
       let mut rendering = rendering.to_rgb8();
       for recognize in &page.recognizes {  
@@ -56,11 +57,15 @@ impl RecBlackFill for Engine {
               }
             }
           }
+
           // 填涂比rec_options中最大，且大于阈值min_filled_ratio的区域
           if let Some(max_value) = max_filled_ratio_value {  
             if max_value as f32 > CONFIG.image_blackfill.min_filled_ratio {
               let coordinate = recognize.rec_options[max_filled_ratio_index.expect("No max_filled_ratio_index provided")].coordinate;
-              println!("===填涂比{:?}===", recognize.rec_options[max_filled_ratio_index.expect("No max_filled_ratio_index provided")].value);
+              #[cfg(debug_assertions)]
+              {
+                println!("===填涂比{:?}===", recognize.rec_options[max_filled_ratio_index.expect("No max_filled_ratio_index provided")].value);
+              }
               match coordinate {
                 Some(c) => {
                   draw_filled_rect_mut(

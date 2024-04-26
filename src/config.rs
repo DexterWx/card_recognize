@@ -18,6 +18,7 @@ pub struct ImageBaizheng {
     pub page_number_diff: f32,
     pub model_point_wh_cosine_similarity: f32,
     pub model_point_diff: i32,
+    pub model_point_scan_range: i32
 }
 
 /// 判断填涂比参数
@@ -69,7 +70,8 @@ pub static CONFIG: Config = Config{
     image_baizheng: ImageBaizheng{
         page_number_diff: 0.21,
         model_point_wh_cosine_similarity: 0.985,
-        model_point_diff:50
+        model_point_diff: 50,
+        model_point_scan_range: 6
     },
     image_blackfill: ImageBlackFill{
         image_type: "integral_gray",
