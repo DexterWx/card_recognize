@@ -38,6 +38,7 @@ impl RecBlackFill for Engine {
 
   fn rendering_black_fill(&self, output: &mut OutputRec) {
     for (_page_index, page) in output.pages.iter_mut().enumerate() {  
+      if matches!(page.image_rendering, None){continue;}
       let rendering = trans_base64_to_image(&page.image_rendering.as_ref().expect("image_rendering is None"));
       let mut rendering = rendering.to_rgb8();
       for recognize in &page.recognizes {  
@@ -60,7 +61,10 @@ impl RecBlackFill for Engine {
           if let Some(max_index) = max_filled_ratio_index {  
             if max_index as f32 > CONFIG.image_blackfill.min_filled_ratio {
               let coordinate = recognize.rec_options[max_index].coordinate;
-              println!("===填涂比{:?}===", recognize.rec_options[max_index].value);
+              #[cfg(debug_assertions)]
+              {
+                println!("===填涂比{:?}===", recognize.rec_options[max_index].value);
+              }
               match coordinate {
                 Some(c) => {
                   draw_filled_rect_mut(
