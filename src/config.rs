@@ -20,6 +20,13 @@ pub struct ImageBaizheng {
     pub model_point_diff: i32,
 }
 
+/// 判断填涂比参数
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ImageBlackFill {
+    pub image_type: String,
+    pub min_filled_ratio: f32,
+}
+
 /// 识别类型参数
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RecognitionType {
@@ -36,6 +43,7 @@ pub struct RecognitionType {
 pub struct Config {
     pub image_process: ImageProcess,
     pub image_baizheng: ImageBaizheng,
+    pub image_blackfill: ImageBlackFill,
     pub recognize_type: RecognitionType,
     // 其他配置参数
 }
@@ -62,6 +70,10 @@ pub static CONFIG: Config = Config{
         page_number_diff: 0.21,
         model_point_wh_cosine_similarity: 0.985,
         model_point_diff:50
+    },
+    image_blackfill: ImageBlackFill{
+        image_type: "integral_gray",
+        min_filled_ratio: 0.7
     },
     recognize_type: RecognitionType{
         black_fill: 1,
