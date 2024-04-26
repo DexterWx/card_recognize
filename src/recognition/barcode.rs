@@ -8,10 +8,9 @@ use rxing::{
     BufferedImageLuminanceSource,
 };
 use image::DynamicImage;
-use crate::{models::{engine_rec::ProcessedImages, rec_result::{OutputRec, Value}}, recognition::engine::Engine};
+use crate::{models::{engine_rec::ProcessedImages, rec_result::{OutputRec, Value}}, my_utils::image::crop_image, recognition::engine::Engine};
 use crate::models::scan_json::Coordinate;
-use crate::my_utils::image::crop_image;
-pub fn decode_barcode(img: &DynamicImage, coor: &Coordinate) -> std::option::Option<String> {
+pub fn decode_barcode(img: DynamicImage) -> std::option::Option<String> {
     let multi_format_reader = MultiUseMultiFormatReader::default();
     let mut scanner = GenericMultipleBarcodeReader::new(multi_format_reader);
     let mut hints = HashMap::new();
@@ -20,7 +19,7 @@ pub fn decode_barcode(img: &DynamicImage, coor: &Coordinate) -> std::option::Opt
         .entry(DecodeHintType::TRY_HARDER)
         .or_insert(DecodeHintValue::TryHarder(true));
     let decode_result = scanner.decode_multiple_with_hints(
-        &mut BinaryBitmap::new(HybridBinarizer::new(BufferedImageLuminanceSource::new(crop_image(img, coor)))),
+        &mut BinaryBitmap::new(HybridBinarizer::new(BufferedImageLuminanceSource::new(img))),
         &hints,
     );
     match decode_result {
@@ -54,7 +53,8 @@ pub trait RecBarcode{
 
 impl RecBarcode for Engine {
     fn rec_barcode(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value> {
-        match decode_barcode(&DynamicImage::ImageRgb8(img.rgb.clone()), coordinate) {
+        let crop: image::ImageBuffer<image::Rgb<u8>, Vec<u8>> = crop_image(&img.rgb, coordinate);
+        match decode_barcode(DynamicImage::ImageRgb8(crop)) {
             Some(p) => Some(Value::String(p)),
             None => None,
         }
@@ -64,3 +64,5 @@ impl RecBarcode for Engine {
         
     }
 }
+
+  
