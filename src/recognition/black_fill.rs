@@ -17,7 +17,7 @@ impl RecBlackFill for Engine {
     let rect = Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32);
     //计算图像中区域所有像素值的和
     let integral_image ;
-    if CONFIG.image_blackfill.image_type == "integral_gray" {
+    if CONFIG.image_blackfill.image_type == 0 {
       integral_image = &img.integral_gray;
     } else {
       integral_image = &img.integral_morphology;
@@ -38,42 +38,38 @@ impl RecBlackFill for Engine {
 
   fn rendering_black_fill(&self, output: &mut OutputRec) {
     for (_page_index, page) in output.pages.iter_mut().enumerate() {  
+      if matches!(page.image_rendering, None){continue;}
       let rendering = trans_base64_to_image(&page.image_rendering.as_ref().expect("image_rendering is None"));
       let mut rendering = rendering.to_rgb8();
-      for recognize in &page.recognizes {  
+      for recognize in &page.recognizes {
         if recognize.rec_type == CONFIG.recognize_type.black_fill {
           let mut max_filled_ratio_index = None;
           let mut max_filled_ratio_value = None;
           for (_index, rec_option) in recognize.rec_options.iter().enumerate() {
           
             if let Some(Value::Float(value)) = rec_option.value {  
-              if match max_filled_ratio_value {  
-                  Some(max_value) => value > max_value,  
-                  None => true  
-              } {   
-                  max_filled_ratio_index = Some(_index);
-                  max_filled_ratio_value = Some(value);
-              }
+                if max_filled_ratio_value.map_or(true, |max_value| value > max_value) {  
+                  max_filled_ratio_index = Some(_index);  
+                  max_filled_ratio_value = Some(value);  
+                }  
             }
           }
-          // 填涂比rec_options中最大，且大于0.5的区域
-          if let Some(max_index) = max_filled_ratio_index {  
-            if max_index as f32 > CONFIG.image_blackfill.min_filled_ratio {
-              let coordinate = recognize.rec_options[max_index].coordinate;
-              println!("===填涂比{:?}===", recognize.rec_options[max_index].value);
-              match coordinate {
-                Some(c) => {
-                  draw_filled_rect_mut(
-                    &mut rendering, 
-                    Rect::at(c.x, c.y).of_size(c.w as u32, c.h as u32), 
-                    Rgb([255u8, 0u8, 0u8]),
-                  );
-                },
-                None => {  
-                  // 异常处理  
-                }
+          // 填涂比rec_options中最大，且大于阈值min_filled_ratio的区域
+          if let Some(max_value) = max_filled_ratio_value {
+            if max_value as f32 > CONFIG.image_blackfill.min_filled_ratio {
+              let max_index = max_filled_ratio_index.expect("No max_filled_ratio_index provided");
+              #[cfg(debug_assertions)]
+              {
+                println!("===填涂比{:?}===", recognize.rec_options[max_index].value);
               }
-            } 
+              if let Some(coordinate) = recognize.rec_options[max_index].coordinate {  
+                draw_filled_rect_mut(  
+                    &mut rendering,   
+                    Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32),   
+                    Rgb([255u8, 0u8, 0u8]),  
+                );  
+              }
+            }
           }
         }
       }
