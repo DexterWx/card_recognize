@@ -49,32 +49,27 @@ impl RecBlackFill for Engine {
           
             if let Some(Value::Float(value)) = rec_option.value {  
                 if max_filled_ratio_value.map_or(true, |max_value| value > max_value) {  
-                    max_filled_ratio_index = Some(_index);  
-                    max_filled_ratio_value = Some(value);  
+                  max_filled_ratio_index = Some(_index);  
+                  max_filled_ratio_value = Some(value);  
                 }  
             }
           }
           // 填涂比rec_options中最大，且大于阈值min_filled_ratio的区域
-          if let Some(max_value) = max_filled_ratio_value {  
+          if let Some(max_value) = max_filled_ratio_value {
             if max_value as f32 > CONFIG.image_blackfill.min_filled_ratio {
-              let coordinate = recognize.rec_options[max_filled_ratio_index.expect("No max_filled_ratio_index provided")].coordinate;
+              let max_index = max_filled_ratio_index.expect("No max_filled_ratio_index provided");
               #[cfg(debug_assertions)]
               {
-                println!("===填涂比{:?}===", recognize.rec_options[max_filled_ratio_index.expect("No max_filled_ratio_index provided")].value);
+                println!("===填涂比{:?}===", recognize.rec_options[max_index].value);
               }
-              match coordinate {
-                Some(c) => {
-                  draw_filled_rect_mut(
-                    &mut rendering, 
-                    Rect::at(c.x, c.y).of_size(c.w as u32, c.h as u32), 
-                    Rgb([255u8, 0u8, 0u8]),
-                  );
-                },
-                None => {  
-                  // 异常处理  
-                }
+              if let Some(coordinate) = recognize.rec_options[max_index].coordinate {  
+                draw_filled_rect_mut(  
+                    &mut rendering,   
+                    Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32),   
+                    Rgb([255u8, 0u8, 0u8]),  
+                );  
               }
-            } 
+            }
           }
         }
       }
