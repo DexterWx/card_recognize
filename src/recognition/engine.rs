@@ -52,6 +52,7 @@ impl Engine {
         #[cfg(debug_assertions)]
         {
             self.rendering_model_points(&mut imgs_and_model_points, &mut output);
+            self.rendering_assist_points(&mut imgs_and_model_points, &mut output);
             self.rendering_black_fill(&mut output);
             self.rendering_number(&mut output);
             self.rendering_vx(&mut output);

@@ -31,8 +31,8 @@ pub struct Page {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct AssistPoint {
-    right: Coordinate,
-    left: Coordinate
+    pub right: Coordinate,
+    pub left: Coordinate
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]

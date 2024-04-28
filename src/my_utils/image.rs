@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use image::{DynamicImage, ImageBuffer, Luma, Rgb, RgbImage, ImageFormat};
 use imageproc::distance_transform::Norm;
-use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
+use imageproc::geometric_transformations::{rotate_about_center, rotate, Interpolation};
 use imageproc::morphology::{dilate, erode};
 use imageproc::{filter::gaussian_blur_f32, point::Point};
 use imageproc::integral_image::{integral_image, sum_image_pixels};
@@ -243,10 +243,11 @@ pub fn process_image(model_size: &ModelSize, base64_image: &String) -> Processed
 }
 
 /// 旋转ProcessedImages
-pub fn rotate_processed_image(img: &mut ProcessedImages, angle_radians: f32){
-    img.rgb = rotate_about_center(&img.rgb, angle_radians, Interpolation::Bilinear, Rgb([255,255,255]));
-    img.gray = rotate_about_center(&img.gray, angle_radians, Interpolation::Bilinear, Luma([255]));
-    img.morphology = rotate_about_center(&img.morphology, angle_radians, Interpolation::Bilinear, Luma([255]));
+pub fn rotate_processed_image(img: &mut ProcessedImages, center: &MyPoint, angle_radians: f32){
+    let center = (center.x as f32, center.y as f32);
+    img.rgb = rotate(&img.rgb, center, angle_radians, Interpolation::Bilinear, Rgb([255,255,255]));
+    img.gray = rotate(&img.gray, center, angle_radians, Interpolation::Bilinear, Luma([255]));
+    img.morphology = rotate(&img.morphology, center, angle_radians, Interpolation::Bilinear, Luma([255]));
     img.integral_gray = integral_image(&img.gray);
     img.integral_morphology = integral_image(&img.morphology);
 }
