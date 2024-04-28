@@ -22,7 +22,7 @@ rust-1.76.0-test:
     - source ~/.bashrc
     - . "$HOME/.cargo/env"
     - rustc -V
-    - cargo test
+    - cargo test --release
   allow_failure: false
   tags:
     - docker-test

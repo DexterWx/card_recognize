@@ -9,8 +9,8 @@ image_baizheng:
   model_point_diff: 50
   model_point_scan_range: 6
 image_blackfill:
-  image_type: "integral_gray"
-  min_filled_ratio: 0.7
+  image_type: 0
+  min_filled_ratio: 0.5
 recognize_type:
   black_fill: 1
   vx: 2
