@@ -425,8 +425,8 @@ fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate, sca
             &img.integral_gray, left, i-1, right, i-1
         )[0];
         let diff = current - before;
-        if diff < min_decrease && i <= (top+bottom)/2 {min_decrease = diff;coordinate.y = i as i32;}
-        if diff > max_increase && i >= (top+bottom)/2 {max_increase = diff;_y = (i-1) as i32;}
+        if diff < min_decrease && i <= (top+bottom)*2/3 {min_decrease = diff;coordinate.y = i as i32;}
+        if diff > max_increase && i >= (top+bottom)/3 {max_increase = diff;_y = (i-1) as i32;}
     }
     coordinate.h = _y - coordinate.y;
 }
@@ -447,8 +447,8 @@ fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate, s
             &img.integral_gray, i-1, top, i-1, bottom
         )[0];
         let diff = current - before;
-        if diff < min_decrease && i <= (left+right)/2 {min_decrease = diff;coordinate.x = i as i32;}
-        if diff > max_increase && i >= (left+right)/2 {max_increase = diff;_x = (i-1) as i32;}
+        if diff < min_decrease && i <= (left+right)*2/3 {min_decrease = diff;coordinate.x = i as i32;}
+        if diff > max_increase && i >= (left+right)/3 {max_increase = diff;_x = (i-1) as i32;}
     }
     coordinate.w = _x - coordinate.x;
 }
