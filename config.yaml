@@ -8,6 +8,7 @@ image_baizheng:
   model_point_wh_cosine_similarity: 0.985
   model_point_diff: 50
   model_point_scan_range: 6
+  assist_point_scan_range: 4
 image_blackfill:
   image_type: 0
   min_filled_ratio: 0.5

@@ -32,7 +32,7 @@ pub struct Page{
     pub image_source: Option<String>,
     pub image_rotated: Option<String>,
     pub image_rendering: Option<String>,
-    pub assist_points: Option<HashMap<i32, MoveOperation>>,
+    pub assist_points: HashMap<i32, MoveOperation>,
     pub recognizes: Vec<Recognize>
 }
 
@@ -85,7 +85,7 @@ impl OutputRec{
                     image_source: None,
                     image_rendering: None,
                     image_rotated: None,
-                    assist_points: None,
+                    assist_points: HashMap::new(),
                     recognizes: page.recognizes.iter().map(|rec| {
                         Recognize {
                             rec_id: rec.rec_id.clone(),

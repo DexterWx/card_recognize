@@ -70,7 +70,7 @@ pub struct Recognition {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Item {
-    pub value: Option<Value>, // Assuming value can be a string for all types
+    pub value: Option<Value>,
     pub coordinate: Coordinate,
 }
 

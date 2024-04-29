@@ -12,6 +12,18 @@ pub mod card{
         pub x: i32, // 引擎所有坐标点均使用i32
         pub y: i32,
     }
+    impl MyPoint {
+        pub fn new(x: i32, y: i32) -> Self {
+            MyPoint { x, y }
+        }
+    
+        // 计算向量之间的夹角（弧度）
+        fn angle_to(&self, other: &MyPoint) -> f32 {
+            let dx = (other.x - self.x) as f32;
+            let dy = (other.y - self.y) as f32;
+            dy.atan2(dx)
+        }
+    }
 }
 
 /// 定义引擎各种识别方法所需的结构体

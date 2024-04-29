@@ -1,9 +1,3 @@
-
-
-
-
-
-
 use crate::models::scan_json::{self, InputImage};
 use crate::config::CONFIG;
 
@@ -15,7 +9,7 @@ use crate::recognition::barcode::RecBarcode;
 use crate::recognition::black_fill::RecBlackFill;
 use crate::recognition::numbers::RecNumber;
 use crate::recognition::vx::RecVX;
-use super::baizheng::Baizheng;
+use super::baizheng::{fix_coordinate_use_assist_points, Baizheng};
 
 #[derive(Debug)]
 pub struct Engine {
@@ -44,7 +38,8 @@ impl Engine {
         
         // 摆正+匹配+找到定位点
         let mut imgs_and_model_points = self.baizheng_and_match_page(&input_images, &mut output);
-
+        // 如果有辅助定位点，生成对应的矫正操作
+        self.set_assist_points(&imgs_and_model_points, &mut output);
         // 识别
         _recognize(self, &imgs_and_model_points, &mut output);
 
@@ -91,9 +86,10 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
         // 遍历每个option，根据识别类型调用不同的方法
         for (rec, rec_out) in page.recognizes.iter().zip(page_out.recognizes.iter_mut()){
             for (option, option_out) in rec.options.iter().zip(rec_out.rec_options.iter_mut()) {
-                let real_coordinate = generate_real_coordinate_with_model_points(
+                let mut real_coordinate = generate_real_coordinate_with_model_points(
                     &reference_model_points, &option.coordinate
                 );
+                fix_coordinate_use_assist_points(&mut real_coordinate, &page_out.assist_points.get(&option.coordinate.y));
                 let mut res:Option<Value> = None;
                 match rec.rec_type {
                     rec_type if rec_type==CONFIG.recognize_type.black_fill => {

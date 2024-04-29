@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 /// 完成图片和scanjson的页匹配+图片摆正
 use std::cmp::max;
 use std::cmp::min;
@@ -21,6 +20,7 @@ use crate::models::engine_rec::ReferenceModelPoints;
 use crate::models::engine_rec::{ProcessedImagesAndModelPoints, RecInfoBaizheng};
 use crate::models::my_error::MyError;
 use crate::models::rec_result::ImageStatus;
+use crate::models::rec_result::MoveOperation;
 use crate::models::rec_result::OutputRec;
 use crate::models::rec_result::PageSize;
 use crate::models::scan_json::InputImage;
@@ -28,6 +28,7 @@ use crate::models::scan_json::PageNumberPoint;
 use crate::models::scan_json::{Coordinate, ModelSize};
 use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
+use crate::my_utils::math::cal_segment_angle;
 use crate::my_utils::math::points4_is_valid;
 use crate::my_utils::math::{cosine_similarity, euclidean_distance};
 use crate::config::CONFIG;
@@ -36,7 +37,7 @@ use super::engine::Engine;
 
 pub trait Baizheng{
     fn baizheng_and_match_page(&self, input_images: &InputImage, output: &mut OutputRec) -> Vec<Option<ProcessedImagesAndModelPoints>>;
-    fn set_assist_points(&self, imgs_and_model_points: Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
+    fn set_assist_points(&self, imgs_and_model_points: &Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
     fn rendering_model_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
     fn rendering_assist_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
 }
@@ -191,7 +192,7 @@ impl Baizheng for Engine {
             let processed_image_and_points = processed_image_and_points.as_mut().unwrap();
             let img = &mut processed_image_and_points.img;
             let coors = &mut processed_image_and_points.real_model_points;
-            fix_locations_coordinate(img, coors);
+            fix_model_points_coordinate(img, coors, CONFIG.image_baizheng.model_point_scan_range);
             rotate_img_and_model_points(img, coors);
         }
 
@@ -262,8 +263,33 @@ impl Baizheng for Engine {
         }
     }
 
-    fn set_assist_points(&self, imgs_and_model_points: Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
-        todo!();
+    fn set_assist_points(&self, imgs_and_model_points: &Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
+        for (page, (img_and_model_points, out_page)) in self.get_scan_data().pages.iter().zip(
+            imgs_and_model_points.iter().zip(
+                output.pages.iter_mut()
+            )
+        ){
+            if page.assist_points.is_none(){continue;}
+            if img_and_model_points.is_none(){continue;}
+            let assist_points = page.assist_points.as_ref().unwrap();
+            let img_and_model_points = img_and_model_points.as_ref().unwrap();
+            let reference_model_points = ReferenceModelPoints{
+                model_points: &page.model_points_4.expect("model_points_4 is None"),
+                real_model_points: &img_and_model_points.real_model_points
+            };
+            let move_hash = &mut out_page.assist_points;
+            for point in assist_points.iter(){
+                if point.left.y != point.right.y {continue;}
+                let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left);
+                let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right);
+                let mut fix_left_coor = left_coor.clone();
+                let mut fix_right_coor = right_coor.clone();
+                fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range);
+                fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range);
+                let move_op = generate_move_op([left_coor,right_coor], [fix_left_coor, fix_right_coor]);
+                move_hash.insert(point.left.y, move_op);
+            }   
+        }
     }
 }
 
@@ -372,20 +398,20 @@ fn rotate_model_points(points: &mut [Coordinate;4], center: &MyPoint, angle_radi
     }
 }
 
-fn fix_locations_coordinate(img: &ProcessedImages, coordinates: &mut [Coordinate; 4]){
+fn fix_model_points_coordinate(img: &ProcessedImages, coordinates: &mut [Coordinate; 4], scan_range: i32){
     for coor in coordinates.iter_mut(){
-        fix_location_coordinate(img, coor);
+        fix_coordinate(img, coor, scan_range);
     }
 }
 
-fn fix_location_coordinate(img: &ProcessedImages, coordinate: &mut Coordinate){
-    fix_boundary_top_down(img, coordinate);
-    fix_boundary_left_right(img, coordinate);
+fn fix_coordinate(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32){
+    fix_boundary_top_down(img, coordinate, scan_range);
+    fix_boundary_left_right(img, coordinate, scan_range);
 }
 
-fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate){
-    let top = max(coordinate.y - CONFIG.image_baizheng.model_point_scan_range,0) as u32;
-    let bottom = min(coordinate.y + coordinate.h + CONFIG.image_baizheng.model_point_scan_range, img.rgb.height() as i32) as u32;
+fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32){
+    let top = max(coordinate.y - scan_range,0) as u32;
+    let bottom = min(coordinate.y + coordinate.h + scan_range, img.rgb.height() as i32) as u32;
     let left = coordinate.x as u32;
     let right = (coordinate.x + coordinate.w) as u32;
     let mut min_decrease = 0;
@@ -405,9 +431,9 @@ fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate){
     coordinate.h = _y - coordinate.y;
 }
 
-fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate){
-    let left = max(coordinate.x - CONFIG.image_baizheng.model_point_scan_range,0) as u32;
-    let right = min(coordinate.x + coordinate.w + CONFIG.image_baizheng.model_point_scan_range, img.rgb.width() as i32) as u32;
+fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32){
+    let left = max(coordinate.x - scan_range,0) as u32;
+    let right = min(coordinate.x + coordinate.w + scan_range, img.rgb.width() as i32) as u32;
     let top = coordinate.y as u32;
     let bottom = (coordinate.y + coordinate.h) as u32;
     let mut min_decrease = 0;
@@ -535,3 +561,35 @@ fn calculate_page_img_diff(
     let difference = calculate_page_number_difference(img, &real_page_number_coordinates, &page_number_fill_rates);
     difference
 }
+
+fn generate_move_op(old_points: [Coordinate;2], new_points: [Coordinate;2]) -> MoveOperation{
+    let move_x = new_points[0].x - old_points[0].x;
+    let move_y = new_points[0].y - old_points[0].y;
+    let center = MyPoint{x: new_points[0].x, y: new_points[0].y};
+    let angle = cal_segment_angle(
+        MyPoint::new(old_points[0].x, old_points[0].y),
+        MyPoint::new(old_points[1].x, old_points[1].y),
+        MyPoint::new(new_points[0].x, new_points[0].y),
+        MyPoint::new(new_points[1].x, new_points[1].y),
+    );
+    MoveOperation{
+        move_x: move_x,
+        move_y: move_y,
+        center: center,
+        angle: angle
+    }
+}
+
+pub fn fix_coordinate_use_assist_points(coordinate: &mut Coordinate, move_op: &Option<&MoveOperation>){
+    if move_op.is_none(){return;}
+    let move_op = move_op.unwrap();
+    coordinate.x += move_op.move_x;
+    coordinate.y += move_op.move_y;
+    let new_point = rotate_point(
+        &MyPoint::new(coordinate.x, coordinate.y), &move_op.center, move_op.angle
+    );
+    coordinate.x = new_point.0;
+    coordinate.y = new_point.1;
+}
+
+
