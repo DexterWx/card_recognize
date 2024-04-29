@@ -25,7 +25,7 @@ use crate::models::rec_result::OutputRec;
 use crate::models::rec_result::PageSize;
 use crate::models::scan_json::InputImage;
 use crate::models::scan_json::PageNumberPoint;
-use crate::models::scan_json::{Coordinate, ModelSize};
+use crate::models::scan_json::Coordinate;
 use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
 use crate::my_utils::math::cal_segment_angle;
@@ -416,7 +416,8 @@ fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate, sca
     let right = (coordinate.x + coordinate.w) as u32;
     let mut min_decrease = 0;
     let mut max_increase = 0;
-    let mut _y = coordinate.y + coordinate.h;
+    let mut _y = coordinate.y;
+    let mut _yh = coordinate.y + coordinate.h;
     for i in top+1..bottom{
         let current = sum_image_pixels(
             &img.integral_gray, left, i, right, i
@@ -425,10 +426,10 @@ fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate, sca
             &img.integral_gray, left, i-1, right, i-1
         )[0];
         let diff = current - before;
-        if diff < min_decrease && i <= (top+bottom)*2/3 {min_decrease = diff;coordinate.y = i as i32;}
-        if diff > max_increase && i >= (top+bottom)/3 {max_increase = diff;_y = (i-1) as i32;}
+        if diff < min_decrease && i <= (top+bottom)*2/3 {min_decrease = diff;_y = i as i32;}
+        if diff > max_increase && i >= (top+bottom)/3 {max_increase = diff;_yh = (i-1) as i32;}
     }
-    coordinate.h = _y - coordinate.y;
+    if _yh - _y > CONFIG.image_baizheng.location_min_distance {coordinate.y = _y;coordinate.h = _yh - _y};
 }
 
 fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32){
@@ -438,7 +439,8 @@ fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate, s
     let bottom = (coordinate.y + coordinate.h) as u32;
     let mut min_decrease = 0;
     let mut max_increase = 0;
-    let mut _x = coordinate.x + coordinate.w;
+    let mut _x = coordinate.x;
+    let mut _xw = coordinate.x + coordinate.w;
     for i in left+1..right{
         let current = sum_image_pixels(
             &img.integral_gray, i, top, i, bottom
@@ -447,10 +449,10 @@ fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate, s
             &img.integral_gray, i-1, top, i-1, bottom
         )[0];
         let diff = current - before;
-        if diff < min_decrease && i <= (left+right)*2/3 {min_decrease = diff;coordinate.x = i as i32;}
-        if diff > max_increase && i >= (left+right)/3 {max_increase = diff;_x = (i-1) as i32;}
+        if diff < min_decrease && i <= (left+right)*2/3 {min_decrease = diff;_x = i as i32;}
+        if diff > max_increase && i >= (left+right)/3 {max_increase = diff;_xw = (i-1) as i32;}
     }
-    coordinate.w = _x - coordinate.x;
+    if _xw - _x > CONFIG.image_baizheng.location_min_distance {coordinate.x = _x;coordinate.w = _xw - _x};
 }
 
 /// 输入的图片已经是经过小角度摆正+90度摆正的图片

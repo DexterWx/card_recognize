@@ -20,6 +20,7 @@ pub struct ImageBaizheng {
     pub model_point_diff: i32,
     pub model_point_scan_range: i32,
     pub assist_point_scan_range: i32,
+    pub location_min_distance: i32
 }
 
 /// 判断填涂比参数
@@ -73,7 +74,8 @@ pub static CONFIG: Config = Config{
         model_point_wh_cosine_similarity: 0.985,
         model_point_diff: 50,
         model_point_scan_range: 6,
-        assist_point_scan_range: 4
+        assist_point_scan_range: 4,
+        location_min_distance: 5
     },
     image_blackfill: ImageBlackFill{
         image_type: 0,
