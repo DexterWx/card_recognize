@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use image::{DynamicImage, ImageBuffer, Luma, Rgb, RgbImage, ImageFormat};
 use imageproc::distance_transform::Norm;
-use imageproc::geometric_transformations::{rotate_about_center, rotate, Interpolation};
+use imageproc::geometric_transformations::{rotate, Interpolation};
 use imageproc::morphology::{dilate, erode};
 use imageproc::{filter::gaussian_blur_f32, point::Point};
 use imageproc::integral_image::{integral_image, sum_image_pixels};

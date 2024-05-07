@@ -14,7 +14,7 @@ use imageproc::drawing::draw_filled_circle_mut;
 use imageproc::drawing::draw_filled_rect_mut;
 use imageproc::integral_image::sum_image_pixels;
 use imageproc::rect::Rect;
-use rxing::common::cpp_essentials::direction;
+
 
 use crate::models::engine_rec::ProcessedImages;
 use crate::models::engine_rec::ReferenceModelPoints;
