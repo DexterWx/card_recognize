@@ -89,7 +89,7 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                 let mut real_coordinate = generate_real_coordinate_with_model_points(
                     &reference_model_points, &option.coordinate
                 );
-                fix_coordinate_use_assist_points(&mut real_coordinate, &page_out.assist_points.get(&option.coordinate.y));
+                fix_coordinate_use_assist_points(&mut real_coordinate, &page_out.assist_points_move_op.get(&option.coordinate.y));
                 let mut res:Option<Value> = None;
                 match rec.rec_type {
                     rec_type if rec_type==CONFIG.recognize_type.black_fill => {
