@@ -24,6 +24,7 @@ pub struct ImageBaizheng {
 /// 判断填涂比参数
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImageBlackFill {
+    pub neighborhood_size: u8,
     pub image_type: u8,
     pub min_filled_ratio: f32,
 }
@@ -74,6 +75,7 @@ pub static CONFIG: Config = Config{
         model_point_scan_range: 6
     },
     image_blackfill: ImageBlackFill{
+        neighborhood_size: 5,
         image_type: 0,
         min_filled_ratio: 0.7
     },
