@@ -5,6 +5,11 @@
 /dev/test_data/*.json
 /dev/test_node/*.png
 /dev/test_node/*.jpg
+/dev/test_data/cards/*
+!/dev/test_data/cards/193558
+!/dev/test_data/cards/194751
+!/dev/test_data/cards/195013
+!/dev/test_data/cards/197864
 .idea
 .vscode
 .DS_Store

@@ -18,7 +18,11 @@ pub struct ImageBaizheng {
     pub page_number_diff: f32,
     pub model_point_wh_cosine_similarity: f32,
     pub model_point_diff: i32,
-    pub model_point_scan_range: i32
+    pub model_point_scan_range: i32,
+    pub assist_point_scan_range: i32,
+    pub assist_point_min_distance_distance: i32,
+    pub assist_point_max_distance_distance: i32,
+    pub assist_point_nearby_length: i32
 }
 
 /// 判断填涂比参数
@@ -72,7 +76,11 @@ pub static CONFIG: Config = Config{
         page_number_diff: 0.21,
         model_point_wh_cosine_similarity: 0.985,
         model_point_diff: 50,
-        model_point_scan_range: 6
+        model_point_scan_range: 6,
+        assist_point_scan_range: 8,
+        assist_point_min_distance_distance: 6,
+        assist_point_max_distance_distance: 25,
+        assist_point_nearby_length: 4
     },
     image_blackfill: ImageBlackFill{
         neighborhood_size: 5,

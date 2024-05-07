@@ -1,4 +1,4 @@
-use crate::config::CONFIG;
+use crate::{config::CONFIG, models::card::MyPoint};
 
 /// 余弦相似度
 pub fn cosine_similarity(vec1: &[f32], vec2: &[f32]) -> f32 {
@@ -31,4 +31,18 @@ pub fn points4_is_valid(points: [(i32, i32); 4]) -> bool{
     if diff_x > CONFIG.image_baizheng.model_point_diff{return false;}
     if diff_y > CONFIG.image_baizheng.model_point_diff{return false;}
     true
+}
+
+// 计算线段夹角
+pub fn cal_segment_angle(p1: MyPoint, p2: MyPoint, q1: MyPoint, q2: MyPoint) -> f32 {
+    let v1 = MyPoint::new(p2.x - p1.x, p2.y - p1.y);
+    let v2 = MyPoint::new(q2.x - q1.x, q2.y - q1.y);
+
+    let dot_product = (v1.x * v2.x + v1.y * v2.y) as f32;
+    let cross_product = (v1.x * v2.y - v1.y * v2.x) as f32;
+
+    // 计算夹角的弧度
+    let angle_rad = cross_product.atan2(dot_product);
+
+    angle_rad
 }

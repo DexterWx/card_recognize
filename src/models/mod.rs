@@ -12,6 +12,11 @@ pub mod card{
         pub x: i32, // 引擎所有坐标点均使用i32
         pub y: i32,
     }
+    impl MyPoint {
+        pub fn new(x: i32, y: i32) -> Self {
+            MyPoint { x, y }
+        }
+    }
 }
 
 /// 定义引擎各种识别方法所需的结构体

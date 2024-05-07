@@ -1,7 +1,6 @@
+/// 完成图片和scanjson的页匹配+图片摆正
 use std::cmp::max;
 use std::cmp::min;
-/// 完成图片和scanjson的页匹配+图片摆正
-
 use std::f32::consts::PI;
 use std::collections::HashMap;
 
@@ -12,20 +11,26 @@ use image::Rgb;
 use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
 use imageproc::drawing::draw_filled_circle_mut;
+use imageproc::drawing::draw_filled_rect_mut;
 use imageproc::integral_image::sum_image_pixels;
+use imageproc::rect::Rect;
+
 
 use crate::models::engine_rec::ProcessedImages;
 use crate::models::engine_rec::ReferenceModelPoints;
 use crate::models::engine_rec::{ProcessedImagesAndModelPoints, RecInfoBaizheng};
 use crate::models::my_error::MyError;
 use crate::models::rec_result::ImageStatus;
+use crate::models::rec_result::MoveOperation;
 use crate::models::rec_result::OutputRec;
 use crate::models::rec_result::PageSize;
+use crate::models::scan_json::AssistPoint;
 use crate::models::scan_json::InputImage;
 use crate::models::scan_json::PageNumberPoint;
-use crate::models::scan_json::{Coordinate, ModelSize};
+use crate::models::scan_json::Coordinate;
 use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
+use crate::my_utils::math::cal_segment_angle;
 use crate::my_utils::math::points4_is_valid;
 use crate::my_utils::math::{cosine_similarity, euclidean_distance};
 use crate::config::CONFIG;
@@ -34,7 +39,9 @@ use super::engine::Engine;
 
 pub trait Baizheng{
     fn baizheng_and_match_page(&self, input_images: &InputImage, output: &mut OutputRec) -> Vec<Option<ProcessedImagesAndModelPoints>>;
+    fn set_assist_points(&self, imgs_and_model_points: &Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
     fn rendering_model_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
+    fn rendering_assist_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
 }
 
 
@@ -108,8 +115,9 @@ impl Baizheng for Engine {
                     page_number_points: &page.page_number_points,
                     model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
                 };
-                let flag = match_page_and_img(&match_info, &img_and_model_points);
-                if flag{
+                let diff = match_page_and_img(&match_info, &img_and_model_points);
+                
+                if diff <= CONFIG.image_baizheng.page_number_diff{
                     let img_and_model_points = img_and_model_points.clone();
                     processed_images_res[index_scan] = Some(img_and_model_points.clone());
                     is_match_dict.insert(index_image, true);
@@ -156,8 +164,8 @@ impl Baizheng for Engine {
                     page_number_points: &page.page_number_points,
                     model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
                 };
-                let flag = match_page_and_img(&match_info, &img_and_model_points);
-                if flag{
+                let diff = match_page_and_img(&match_info, &img_and_model_points);
+                if diff <= CONFIG.image_baizheng.page_number_diff{
                     let img_and_model_points = img_and_model_points.clone();
                     processed_images_res[index_scan] = Some(img_and_model_points.clone());
                     is_match_dict.insert(index_image, true);
@@ -186,7 +194,7 @@ impl Baizheng for Engine {
             let processed_image_and_points = processed_image_and_points.as_mut().unwrap();
             let img = &mut processed_image_and_points.img;
             let coors = &mut processed_image_and_points.real_model_points;
-            fix_locations_coordinate(img, coors);
+            fix_model_points_coordinate(img, coors, CONFIG.image_baizheng.model_point_scan_range);
             rotate_img_and_model_points(img, coors);
         }
 
@@ -195,24 +203,19 @@ impl Baizheng for Engine {
         {
             for (index_scan,page) in self.get_scan_data().pages.iter().enumerate(){
                 if matches!(processed_images_res[index_scan],None){continue;}
-                for (_index_image, img_and_model_points) in processed_images_res.iter().enumerate(){
-                    let match_info = RecInfoBaizheng{
-                        model_size: &page.model_size,
-                        page_number_points: &page.page_number_points,
-                        model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
-                    };
-                    let flag = match_page_and_img(&match_info, img_and_model_points.as_ref().unwrap());
-                    if flag{
-                        break
-                    }
-                }
+                let img_and_model_points = processed_images_res[index_scan].as_ref().unwrap();
+                let match_info = RecInfoBaizheng{
+                    model_size: &page.model_size,
+                    page_number_points: &page.page_number_points,
+                    model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
+                };
+                let _ = match_page_and_img(&match_info, img_and_model_points);
             }
         }
 
+
         processed_images_res
     }
-
-
 
     fn rendering_model_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
         for (_index,(img_and_model_points, page)) in imgs_and_model_points.iter().zip(output.pages.iter_mut()).enumerate(){
@@ -227,7 +230,99 @@ impl Baizheng for Engine {
             page.image_rendering = Some(img_base64);
         }
     }
+
+    fn rendering_assist_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
+        for (page,(img_and_model_points,page_out)) in self.get_scan_data().pages.iter().zip(imgs_and_model_points.iter().zip(output.pages.iter_mut())){
+            if matches!(img_and_model_points,None) {continue;}
+            if matches!(page.assist_points, None) {continue;}
+            if matches!(page_out.image_rendering, None){continue;}
+            let rendering = trans_base64_to_image(&page_out.image_rendering.as_ref().expect("image_rendering is None"));
+            let mut rendering = rendering.to_rgb8();
+            let img_and_model_points = img_and_model_points.as_ref().expect("img_and_model_points is None");
+            
+            let reference_model_points = ReferenceModelPoints{
+                model_points: &page.model_points_4.expect("model_points_4 is None"),
+                real_model_points: &img_and_model_points.real_model_points
+            };
+            let assist_points = page.assist_points.as_ref().unwrap();
+            let fix_assist_points = page_out.assist_points.as_ref().unwrap();
+            for (point, fix_point) in assist_points.iter().zip(fix_assist_points.iter()){
+                let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left);
+                let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right);
+                draw_filled_rect_mut(  
+                    &mut rendering,   
+                    Rect::at(left_coor.x, left_coor.y).of_size(left_coor.w as u32, left_coor.h as u32),   
+                    Rgb([255u8, 0u8, 0u8]),
+                );  
+
+                draw_filled_rect_mut(  
+                    &mut rendering,   
+                    Rect::at(right_coor.x, right_coor.y).of_size(right_coor.w as u32, right_coor.h as u32),   
+                    Rgb([255u8, 0u8, 0u8]),  
+                );
+
+                draw_filled_rect_mut(  
+                    &mut rendering,   
+                    Rect::at(fix_point.left.x, fix_point.left.y).of_size(fix_point.left.w as u32, fix_point.left.h as u32),   
+                    Rgb([0u8, 0u8, 255u8]),
+                );  
+                
+                draw_filled_rect_mut(  
+                    &mut rendering,   
+                    Rect::at(fix_point.right.x, fix_point.right.y).of_size(fix_point.right.w as u32, fix_point.right.h as u32),   
+                    Rgb([0u8, 0u8, 255u8]),  
+                );  
+            }
+            let img_base64 = image_to_base64(&rendering);
+            page_out.image_rendering = Some(img_base64);
+        }
+    }
+
+    fn set_assist_points(&self, imgs_and_model_points: &Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
+        for (page, (img_and_model_points, out_page)) in self.get_scan_data().pages.iter().zip(
+            imgs_and_model_points.iter().zip(
+                output.pages.iter_mut()
+            )
+        ){
+            if page.assist_points.is_none(){continue;}
+            if img_and_model_points.is_none(){continue;}
+            let assist_points = page.assist_points.as_ref().unwrap();
+            let img_and_model_points = img_and_model_points.as_ref().unwrap();
+            let reference_model_points = ReferenceModelPoints{
+                model_points: &page.model_points_4.expect("model_points_4 is None"),
+                real_model_points: &img_and_model_points.real_model_points
+            };
+            let move_hash = &mut out_page.assist_points_move_op;
+            let mut fix_assist_points:Vec<AssistPoint> = Vec::new();
+            for point in assist_points.iter(){
+                if point.left.y != point.right.y {continue;}
+                let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left);
+                let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right);
+                let mut fix_left_coor = left_coor.clone();
+                let mut fix_right_coor = right_coor.clone();
+                fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_nearby_length);
+                fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
+                fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range);
+                fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range);
+                fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_nearby_length);
+                fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
+                fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range);
+                fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range);
+                
+                let move_op = generate_move_op([left_coor,right_coor], [fix_left_coor, fix_right_coor]);
+                move_hash.insert(point.left.y, move_op);
+                fix_assist_points.push(
+                    AssistPoint{
+                        left: fix_left_coor.clone(),
+                        right: fix_right_coor.clone(),
+                    }
+                );
+            }  
+            out_page.assist_points = Some(fix_assist_points); 
+        }
+    }
 }
+
 
 // 根据定位点计算偏转角度
 // todo: 如果答题卡被折过，这种方法会有误差。
@@ -239,24 +334,14 @@ pub fn rotate_img_and_model_points(img: &mut ProcessedImages, mut coors: &mut [C
     let angle_radian = -angle_radians1;
 
     // 旋转之前保存中心点
-    let center = MyPoint { x: (img.rgb.width() / 2) as i32, y: (img.rgb.height() / 2) as i32 };
+    let center = MyPoint { x: coors[0].x as i32, y: coors[0].y as i32 };
 
     // 对图像进行旋转
-    rotate_processed_image(img, angle_radian);
+    rotate_processed_image(img, &center, angle_radian);
 
     // 对定位点进行旋转
     rotate_model_points(&mut coors, &center, angle_radian);
 }
-
-/// 根据wh比例决定是否对图片进行90度旋转
-pub fn rotate_processed_image_90(model_size: &ModelSize, img: &mut ProcessedImages){
-    // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
-    let flag_need_90 = (model_size.h > model_size.w) != (img.rgb.height() > img.rgb.width());
-    if flag_need_90{
-        rotate_processed_image(img, PI/2.0);
-    }
-}
-
 
 
 /// 靠图片寻找定位点并进行小角度摆正
@@ -343,25 +428,26 @@ fn rotate_model_points(points: &mut [Coordinate;4], center: &MyPoint, angle_radi
     }
 }
 
-fn fix_locations_coordinate(img: &ProcessedImages, coordinates: &mut [Coordinate; 4]){
+fn fix_model_points_coordinate(img: &ProcessedImages, coordinates: &mut [Coordinate; 4], scan_range: i32){
     for coor in coordinates.iter_mut(){
-        fix_location_coordinate(img, coor);
+        fix_coordinate(img, coor, scan_range);
     }
 }
 
-fn fix_location_coordinate(img: &ProcessedImages, coordinate: &mut Coordinate){
-    fix_boundary_top_down(img, coordinate);
-    fix_boundary_left_right(img, coordinate);
+fn fix_coordinate(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32){
+    fix_boundary_top_down(img, coordinate, scan_range);
+    fix_boundary_left_right(img, coordinate, scan_range);
 }
 
-fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate){
-    let top = max(coordinate.y - CONFIG.image_baizheng.model_point_scan_range,0) as u32;
-    let bottom = min(coordinate.y + coordinate.h + CONFIG.image_baizheng.model_point_scan_range, img.rgb.height() as i32) as u32;
+fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32){
+    let top = max(coordinate.y - scan_range,0) as u32;
+    let bottom = min(coordinate.y + coordinate.h + scan_range, img.rgb.height() as i32) as u32;
     let left = coordinate.x as u32;
     let right = (coordinate.x + coordinate.w) as u32;
     let mut min_decrease = 0;
     let mut max_increase = 0;
-    let mut _y = coordinate.y + coordinate.h;
+    let mut _y = coordinate.y;
+    let mut _yh = coordinate.y + coordinate.h;
     for i in top+1..bottom{
         let current = sum_image_pixels(
             &img.integral_gray, left, i, right, i
@@ -370,20 +456,25 @@ fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate){
             &img.integral_gray, left, i-1, right, i-1
         )[0];
         let diff = current - before;
-        if diff < min_decrease && i <= (top+bottom)/2 {min_decrease = diff;coordinate.y = i as i32;}
-        if diff > max_increase && i >= (top+bottom)/2 {max_increase = diff;_y = (i-1) as i32;}
+        if diff < min_decrease && i <= (top+bottom)*2/3 {min_decrease = diff;_y = i as i32;}
+        if diff > max_increase && i >= (top+bottom)/3 {max_increase = diff;_yh = (i-1) as i32;}
     }
-    coordinate.h = _y - coordinate.y;
+    if _yh - _y > CONFIG.image_baizheng.assist_point_min_distance_distance && _yh - _y < CONFIG.image_baizheng.assist_point_max_distance_distance
+    {
+        coordinate.y = _y;
+        coordinate.h = _yh - _y
+    };
 }
 
-fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate){
-    let left = max(coordinate.x - CONFIG.image_baizheng.model_point_scan_range,0) as u32;
-    let right = min(coordinate.x + coordinate.w + CONFIG.image_baizheng.model_point_scan_range, img.rgb.width() as i32) as u32;
+fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32){
+    let left = max(coordinate.x - scan_range,0) as u32;
+    let right = min(coordinate.x + coordinate.w + scan_range, img.rgb.width() as i32) as u32;
     let top = coordinate.y as u32;
     let bottom = (coordinate.y + coordinate.h) as u32;
     let mut min_decrease = 0;
     let mut max_increase = 0;
-    let mut _x = coordinate.x + coordinate.w;
+    let mut _x = coordinate.x;
+    let mut _xw = coordinate.x + coordinate.w;
     for i in left+1..right{
         let current = sum_image_pixels(
             &img.integral_gray, i, top, i, bottom
@@ -392,10 +483,43 @@ fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate){
             &img.integral_gray, i-1, top, i-1, bottom
         )[0];
         let diff = current - before;
-        if diff < min_decrease && i <= (left+right)/2 {min_decrease = diff;coordinate.x = i as i32;}
-        if diff > max_increase && i >= (left+right)/2 {max_increase = diff;_x = (i-1) as i32;}
+        if diff < min_decrease && i <= (left+right)*2/3 {min_decrease = diff;_x = i as i32;}
+        if diff > max_increase && i >= (left+right)/3 {max_increase = diff;_xw = (i-1) as i32;}
     }
-    coordinate.w = _x - coordinate.x;
+    if _xw - _x > CONFIG.image_baizheng.assist_point_min_distance_distance && _xw - _x < CONFIG.image_baizheng.assist_point_max_distance_distance
+    {
+        coordinate.x = _x;
+        coordinate.w = _xw - _x
+    };
+}
+
+
+fn fix_coordinate_by_search_nearby(img: &ProcessedImages, coordinate: &mut Coordinate, nearby_length: i32){
+    let directions = [
+        (0,0),
+        (0,1),
+        (1,1),
+        (1,0),
+        (1,-1),
+        (0,-1),
+        (-1,-1),
+        (-1,0),
+        (-1,1),
+    ];
+    let mut mean_pix = 255;
+    let mut direction = (0,0);
+    for dir in directions.iter(){
+        let _mean_pix = sum_image_pixels(
+            &img.integral_gray,
+            (coordinate.x + dir.0 * nearby_length) as u32,
+            (coordinate.y + dir.1 * nearby_length) as u32,
+            (coordinate.x + dir.0 * nearby_length + coordinate.w - 1) as u32,
+            (coordinate.y + dir.1 * nearby_length + coordinate.h - 1) as u32
+        )[0] as i32 / (coordinate.w * coordinate.h);
+        if _mean_pix < mean_pix{direction.0 = dir.0;direction.1 = dir.1;mean_pix = _mean_pix;}
+    }
+    coordinate.x += direction.0 * nearby_length;
+    coordinate.y += direction.1 * nearby_length;
 }
 
 /// 输入的图片已经是经过小角度摆正+90度摆正的图片
@@ -403,7 +527,7 @@ fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate){
 /// 匹配成功的img直接进行180大角度摆正
 fn match_page_and_img(
     baizheng_info: &RecInfoBaizheng, img_and_model_points: &ProcessedImagesAndModelPoints
-) -> bool {
+) -> f32 {
     
     // 输入图片可能是需要180翻转的，根据真实页码点填涂率和标注页码点填涂率的距离确定
     let diff = calculate_page_img_diff(
@@ -420,12 +544,7 @@ fn match_page_and_img(
     {
         println!("{diff}");
     }
-    // todo：匹配率作为报错信息返回
-    if diff <= CONFIG.image_baizheng.page_number_diff{
-        return true;
-    }
-
-    return false;
+    return diff;
 }
 
 /// 翻转180,和普通旋转逻辑不通，因为涉及定位点的位置调换
@@ -484,8 +603,7 @@ fn rotate_img_and_model_points_180(
     img_and_model_points.real_model_points[2] = Coordinate{x:x2,y:y2,w:w2,h:h2};
     img_and_model_points.real_model_points[3] = Coordinate{x:x3,y:y3,w:w3,h:h3};
 
-    // 图片旋转180
-    rotate_processed_image(&mut img_and_model_points.img, PI);
+    rotate_processed_image(&mut img_and_model_points.img, &center, PI);
 
 }
 
@@ -512,3 +630,35 @@ fn calculate_page_img_diff(
     let difference = calculate_page_number_difference(img, &real_page_number_coordinates, &page_number_fill_rates);
     difference
 }
+
+fn generate_move_op(old_points: [Coordinate;2], new_points: [Coordinate;2]) -> MoveOperation{
+    let move_x = new_points[0].x - old_points[0].x;
+    let move_y = new_points[0].y - old_points[0].y;
+    let center = MyPoint{x: new_points[0].x, y: new_points[0].y};
+    let angle = cal_segment_angle(
+        MyPoint::new(old_points[0].x, old_points[0].y),
+        MyPoint::new(old_points[1].x, old_points[1].y),
+        MyPoint::new(new_points[0].x, new_points[0].y),
+        MyPoint::new(new_points[1].x, new_points[1].y),
+    );
+    MoveOperation{
+        move_x: move_x,
+        move_y: move_y,
+        center: center,
+        angle: angle
+    }
+}
+
+pub fn fix_coordinate_use_assist_points(coordinate: &mut Coordinate, move_op: &Option<&MoveOperation>){
+    if move_op.is_none(){return;}
+    let move_op = move_op.unwrap();
+    coordinate.x += move_op.move_x;
+    coordinate.y += move_op.move_y;
+    let new_point = rotate_point(
+        &MyPoint::new(coordinate.x, coordinate.y), &move_op.center, move_op.angle
+    );
+    coordinate.x = new_point.0;
+    coordinate.y = new_point.1;
+}
+
+

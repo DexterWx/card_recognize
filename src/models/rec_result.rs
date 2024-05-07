@@ -2,9 +2,10 @@
     输出结构
 */
 
+use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
-use super::scan_json::{InputScan, Coordinate};
+use super::{card::MyPoint, scan_json::{AssistPoint, Coordinate, InputScan}};
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,7 +32,17 @@ pub struct Page{
     pub image_source: Option<String>,
     pub image_rotated: Option<String>,
     pub image_rendering: Option<String>,
+    pub assist_points: Option<Vec<AssistPoint>>,
+    pub assist_points_move_op: HashMap<i32, MoveOperation>,
     pub recognizes: Vec<Recognize>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MoveOperation{
+    pub move_x: i32,
+    pub move_y: i32,
+    pub center: MyPoint,
+    pub angle: f32
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -75,6 +86,8 @@ impl OutputRec{
                     image_source: None,
                     image_rendering: None,
                     image_rotated: None,
+                    assist_points: None,
+                    assist_points_move_op: HashMap::new(),
                     recognizes: page.recognizes.iter().map(|rec| {
                         Recognize {
                             rec_id: rec.rec_id.clone(),
