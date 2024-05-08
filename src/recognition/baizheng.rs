@@ -366,6 +366,9 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         let [lt_box, rt_box, ld_box] = calculate_points_lt_rt_ld(&contour.points).expect("Calculate 3 Points Failed");
         let w = euclidean_distance((lt_box.x as f32,lt_box.y as f32), (rt_box.x as f32,rt_box.y as f32)) as i32;
         let h = euclidean_distance((lt_box.x as f32,lt_box.y as f32), (ld_box.x as f32,ld_box.y as f32)) as i32;
+        if w<CONFIG.image_baizheng.model_point_min_wh || h<CONFIG.image_baizheng.model_point_min_wh{
+            continue;
+        }
         // 过滤影响定位点选择的框框，余弦相似度如果不够大说明不是定位点。
         if CONFIG.image_baizheng.model_point_wh_cosine_similarity > cosine_similarity(&vec![w as f32,h as f32], &vec![location_wh.0 as f32, location_wh.1 as f32]) {
             continue
@@ -459,7 +462,7 @@ fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate, sca
         if diff < min_decrease && i <= (top+bottom)*2/3 {min_decrease = diff;_y = i as i32;}
         if diff > max_increase && i >= (top+bottom)/3 {max_increase = diff;_yh = (i-1) as i32;}
     }
-    if _yh - _y > CONFIG.image_baizheng.assist_point_min_distance_distance && _yh - _y < CONFIG.image_baizheng.assist_point_max_distance_distance
+    if _yh - _y > CONFIG.image_baizheng.assist_point_min_distance && _yh - _y < CONFIG.image_baizheng.assist_point_max_distance
     {
         coordinate.y = _y;
         coordinate.h = _yh - _y
@@ -486,7 +489,7 @@ fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate, s
         if diff < min_decrease && i <= (left+right)*2/3 {min_decrease = diff;_x = i as i32;}
         if diff > max_increase && i >= (left+right)/3 {max_increase = diff;_xw = (i-1) as i32;}
     }
-    if _xw - _x > CONFIG.image_baizheng.assist_point_min_distance_distance && _xw - _x < CONFIG.image_baizheng.assist_point_max_distance_distance
+    if _xw - _x > CONFIG.image_baizheng.assist_point_min_distance && _xw - _x < CONFIG.image_baizheng.assist_point_max_distance
     {
         coordinate.x = _x;
         coordinate.w = _xw - _x

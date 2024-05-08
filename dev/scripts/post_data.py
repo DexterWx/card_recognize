@@ -5,7 +5,7 @@ import os
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 data = {
-    "uid": 197864,
+    "uid": 199611,
     "recResult": {
         "index1": [
             {
@@ -17,18 +17,15 @@ data = {
     "fillRate": 0.5,
 }
 
-with open("../test_data/197864.json") as f:
+with open("../test_data/199611.json") as f:
     data['recResult'] = json.load(f)
 
-with open("../test_data/cards/197864/scan.json") as f:
+with open("../test_data/cards/199611/scan.json") as f:
     data['recInitParam'] = json.load(f)
-
-with open("../test_data/197864_post.json",'w') as f:
-    json.dump(data,f)
 
 url = "https://scanstat.17zuoye.net/unipus_staging/exam/exam/generate_scan_datas"
 
 res = requests.post(url, json = data).text
 res = json.loads(res)
-with open("../test_data/197864_res.json", 'w') as f:
+with open("../test_data/199611_res.json", 'w') as f:
     json.dump(res, f)
