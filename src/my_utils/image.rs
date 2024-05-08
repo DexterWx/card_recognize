@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use image::{DynamicImage, ImageBuffer, Luma, Rgb, RgbImage, ImageFormat};
+use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate, Interpolation};
 use imageproc::morphology::{dilate, erode};
@@ -285,6 +285,22 @@ pub fn image_to_base64(img: &RgbImage) -> String {
 /**
  * 截取图像
  */
-pub fn crop_image(image: &DynamicImage, coor: &Coordinate) -> DynamicImage {
-    image.crop_imm(coor.x as u32, coor.y as u32, coor.w as u32, coor.h as u32)
+pub fn crop_image(input_image: &RgbImage, coordinate: &Coordinate) -> RgbImage {  
+    let (width, height) = (coordinate.w as u32, coordinate.h as u32);  
+    let mut cropped_image = ImageBuffer::from_fn(width, height, |_, _| Rgb([255u8; 3]));  
+  
+    for y in 0..height {  
+        for x in 0..width {  
+            let src_x = coordinate.x as u32 + x;  
+            let src_y = coordinate.y as u32 + y;  
+            if src_x < input_image.width() && src_y < input_image.height() {  
+                let pixel: &Rgb<u8> = input_image.get_pixel(src_x, src_y);  
+                cropped_image.put_pixel(x, y, *pixel);  
+            } else {  
+                //异常为白色
+                cropped_image.put_pixel(x, y, image::Rgb([255, 255, 255]));  
+            }  
+        }  
+    }
+    cropped_image
 }
