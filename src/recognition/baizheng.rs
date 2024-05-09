@@ -302,12 +302,12 @@ impl Baizheng for Engine {
                 let mut fix_right_coor = right_coor.clone();
                 fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_nearby_length);
                 fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
-                fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range);
-                fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range);
+                fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
+                fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
                 fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_nearby_length);
                 fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
-                fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range);
-                fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range);
+                fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
+                fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
 
                 let move_op = generate_move_op([left_coor,right_coor], [fix_left_coor, fix_right_coor]);
                 move_hash.insert(point.left.y, move_op);
@@ -453,16 +453,16 @@ fn rotate_model_points(points: &mut [Coordinate;4], center: &MyPoint, angle_radi
 
 fn fix_model_points_coordinate(img: &ProcessedImages, coordinates: &mut [Coordinate; 4], scan_range: i32){
     for coor in coordinates.iter_mut(){
-        fix_coordinate(img, coor, scan_range);
+        fix_coordinate(img, coor, scan_range, CONFIG.image_baizheng.model_point_min_distance,CONFIG.image_baizheng.model_point_max_distance);
     }
 }
 
-fn fix_coordinate(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32){
-    fix_boundary_top_down(img, coordinate, scan_range);
-    fix_boundary_left_right(img, coordinate, scan_range);
+fn fix_coordinate(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32, min_dis: i32, max_dis: i32){
+    fix_boundary_top_down(img, coordinate, scan_range, min_dis, max_dis);
+    fix_boundary_left_right(img, coordinate, scan_range, min_dis, max_dis);
 }
 
-fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32){
+fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32, min_dis: i32, max_dis: i32){
     let top = max(coordinate.y - scan_range,0) as u32;
     let bottom = min(coordinate.y + coordinate.h + scan_range, img.rgb.height() as i32) as u32;
     let left = coordinate.x as u32;
@@ -482,14 +482,14 @@ fn fix_boundary_top_down(img: &ProcessedImages, coordinate: &mut Coordinate, sca
         if diff < min_decrease && i <= (top+bottom)*2/3 {min_decrease = diff;_y = i as i32;}
         if diff > max_increase && i >= (top+bottom)/3 {max_increase = diff;_yh = (i-1) as i32;}
     }
-    if _yh - _y > CONFIG.image_baizheng.assist_point_min_distance && _yh - _y < CONFIG.image_baizheng.assist_point_max_distance
+    if _yh - _y > min_dis && _yh - _y < max_dis
     {
         coordinate.y = _y;
         coordinate.h = _yh - _y
     };
 }
 
-fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32){
+fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate, scan_range: i32, min_dis: i32, max_dis: i32){
     let left = max(coordinate.x - scan_range,0) as u32;
     let right = min(coordinate.x + coordinate.w + scan_range, img.rgb.width() as i32) as u32;
     let top = coordinate.y as u32;
@@ -509,7 +509,7 @@ fn fix_boundary_left_right(img: &ProcessedImages, coordinate: &mut Coordinate, s
         if diff < min_decrease && i <= (left+right)*2/3 {min_decrease = diff;_x = i as i32;}
         if diff > max_increase && i >= (left+right)/3 {max_increase = diff;_xw = (i-1) as i32;}
     }
-    if _xw - _x > CONFIG.image_baizheng.assist_point_min_distance && _xw - _x < CONFIG.image_baizheng.assist_point_max_distance
+    if _xw - _x > min_dis && _xw - _x < max_dis
     {
         coordinate.x = _x;
         coordinate.w = _xw - _x

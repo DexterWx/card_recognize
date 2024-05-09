@@ -1,19 +1,21 @@
 image_process:
   gaussian_blur_sigma: 1.0
   binarization_threshold: 180
-  erode_kernel: 3
+  erode_kernel: 2
   morphology_kernel: 5
   empty_image_threshold: 253
 image_baizheng:
   page_number_diff: 0.21
   model_point_wh_cosine_similarity: 0.985
-  model_point_min_wh: 12
+  model_point_min_wh: 10
   model_point_max_wh: 70
   model_point_diff: 50
   model_point_scan_range: 6
   assist_point_scan_range: 8
   assist_point_min_distance: 6
   assist_point_max_distance: 25
+  model_point_min_distance: 6
+  model_point_max_distance: 60
   assist_point_nearby_length: 4
 image_blackfill:
   neighborhood_size: 5

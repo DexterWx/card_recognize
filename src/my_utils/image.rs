@@ -224,10 +224,10 @@ pub fn process_image(model_size: &ModelSize, base64_image: &String) -> Processed
             *pixel = Luma([0u8]);
         }
     });
-    // 腐蚀操作,黑色变多
-    let mor_img = erode(&blurred_img, Norm::LInf, CONFIG.image_process.erode_kernel);
+    // // 腐蚀操作,黑色变多
+    // let mor_img = erode(&blurred_img, Norm::LInf, CONFIG.image_process.erode_kernel);
     // 膨胀操作，白色变多
-    let mor_img = dilate(&mor_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
+    let mor_img = dilate(&blurred_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
     // 腐蚀操作,黑色变多
     let mor_img = erode(&mor_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
     

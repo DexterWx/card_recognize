@@ -25,6 +25,8 @@ pub struct ImageBaizheng {
     pub assist_point_scan_range: i32,
     pub assist_point_min_distance: i32,
     pub assist_point_max_distance: i32,
+    pub model_point_min_distance: i32,
+    pub model_point_max_distance: i32,
     pub assist_point_nearby_length: i32
 }
 
@@ -86,6 +88,8 @@ pub static CONFIG: Config = Config{
         assist_point_scan_range: 8,
         assist_point_min_distance: 6,
         assist_point_max_distance: 25,
+        model_point_min_distance: 12,
+        model_point_max_distance: 80,
         assist_point_nearby_length: 4
     },
     image_blackfill: ImageBlackFill{
