@@ -413,6 +413,7 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
     #[cfg(debug_assertions)]
     {
         let mut rendering = img.rgb.clone();
+        println!("{:?}",[lt,rt,ld,rd]);
         for point in [lt,rt,ld,rd].iter(){
             draw_filled_circle_mut(&mut rendering,(point.x,point.y),3, Rgb([0,0,255]));
             draw_filled_circle_mut(&mut rendering,(point.x + point.w,point.y+point.h),3, Rgb([0,0,255]));

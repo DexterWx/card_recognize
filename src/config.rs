@@ -8,6 +8,7 @@ use std::io::BufReader;
 pub struct ImageProcess {
     pub gaussian_blur_sigma: f32,
     pub binarization_threshold: u8,
+    pub erode_kernel: u8,
     pub morphology_kernel: u8,
     pub empty_image_threshold: u8
 }
@@ -71,6 +72,7 @@ pub static CONFIG: Config = Config{
     image_process: ImageProcess{
         gaussian_blur_sigma: 1.0,
         binarization_threshold: 180,
+        erode_kernel: 3,
         morphology_kernel: 5,
         empty_image_threshold: 253,
     },
