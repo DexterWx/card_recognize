@@ -6,6 +6,7 @@
 /dev/test_node/*.png
 /dev/test_node/*.jpg
 /dev/test_data/cards/*
+/dev/scripts/config.yaml
 !/dev/test_data/cards/193558
 !/dev/test_data/cards/194751
 !/dev/test_data/cards/195013

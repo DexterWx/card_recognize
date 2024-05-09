@@ -12,6 +12,7 @@ use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
 use imageproc::drawing::draw_filled_circle_mut;
 use imageproc::drawing::draw_filled_rect_mut;
+use imageproc::integral_image::integral_image;
 use imageproc::integral_image::sum_image_pixels;
 use imageproc::rect::Rect;
 
@@ -374,9 +375,23 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         }
 
         // 过滤影响定位点选择的框框，余弦相似度如果不够大说明不是定位点。
-        if CONFIG.image_baizheng.model_point_wh_cosine_similarity > cosine_similarity(&vec![w as f32,h as f32], &vec![location_wh.0 as f32, location_wh.1 as f32]) {
+        let cos = cosine_similarity(&vec![w as f32,h as f32], &vec![location_wh.0 as f32, location_wh.1 as f32]);
+        if CONFIG.image_baizheng.model_point_wh_cosine_similarity > cos{
             continue
         }
+
+        let _var = variance_in_rect(
+            &img.gray,
+            &Coordinate{
+                x:lt_box.x,
+                y:lt_box.y,
+                w:w,
+                h:h
+            }
+        );
+
+        if _var>10500f32{continue;}
+
         let x = lt_box.x;
         let y = lt_box.y;
 
@@ -409,20 +424,24 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
             rd.h = h;
         }
     }
-
     #[cfg(debug_assertions)]
     {
         let mut rendering = img.rgb.clone();
         println!("{:?}",[lt,rt,ld,rd]);
-        for point in [lt,rt,ld,rd].iter(){
-            draw_filled_circle_mut(&mut rendering,(point.x,point.y),3, Rgb([0,0,255]));
-            draw_filled_circle_mut(&mut rendering,(point.x + point.w,point.y+point.h),3, Rgb([0,0,255]));
+        for coor in [lt,rt,ld,rd].iter(){
+            draw_filled_circle_mut(&mut rendering,(coor.x,coor.y),3, Rgb([0,0,255]));
+            draw_filled_circle_mut(&mut rendering,(coor.x + coor.w,coor.y+coor.h),3, Rgb([0,0,255]));
+            let _var = variance_in_rect(&img.gray, &coor);
+            println!("定位点方差: {_var:?}");
         }
         let path_model_point = format!("dev/test_data/debug_model_points.jpg");
         let _ = rendering.save(path_model_point);
 
         let path_morphology = format!("dev/test_data/debug_path_morphology.jpg");
         let _ = img.morphology.save(path_morphology);
+
+        let path_gray = format!("dev/test_data/debug_path_gray.jpg");
+        let _ = img.gray.save(path_gray);
         
     }
     

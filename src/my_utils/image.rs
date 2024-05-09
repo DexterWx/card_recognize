@@ -306,3 +306,25 @@ pub fn crop_image(input_image: &RgbImage, coordinate: &Coordinate) -> RgbImage {
     }
     cropped_image
 }
+
+pub fn variance_in_rect(img: &ImageBuffer<image::Luma<u8>, Vec<u8>>, rect: &Coordinate) -> f32 {
+    // 提取矩形范围内像素值
+    let mut pixel_values = Vec::new();
+    for y in rect.y..(rect.y + rect.h) {
+        for x in rect.x..(rect.x + rect.w) {
+            let pixel = img.get_pixel(x as u32, y as u32);
+            let gray_value = pixel.0[0] as f32; // 假设是灰度图像
+            pixel_values.push(gray_value);
+        }
+    }
+
+    // 计算方差
+    let n = pixel_values.len() as f32;
+    let mean = pixel_values.iter().sum::<f32>() / n;
+    let variance = pixel_values.iter().fold(0.0, |acc, &x| {
+        let diff = x - mean;
+        acc + diff * diff
+    }) / n;
+
+    variance
+}
