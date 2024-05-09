@@ -2,7 +2,7 @@
     排版标注信息结构，从scanjson洗出来的。
 */
 
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, de::Deserializer};
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -20,7 +20,7 @@ pub struct InputImage {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Page {
-    pub card_columns: u8, 
+    pub card_columns: u8,
     pub model_size: ModelSize,
     pub model_points: Vec<ModelPoint>,
     pub page_number_points: Vec<PageNumberPoint>,
@@ -47,12 +47,71 @@ pub struct ModelPoint {
     pub coordinate: Coordinate,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug)]
+enum Number {
+    Int(i32),
+    Float(f64),
+}
+
+impl<'de> Deserialize<'de> for Number {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let num: serde_json::Number = Deserialize::deserialize(deserializer)?;
+
+        if let Some(int_val) = num.as_i64() {
+            Ok(Number::Int(int_val as i32))
+        } else if let Some(float_val) = num.as_f64() {
+            Ok(Number::Float(float_val))
+        } else {
+            Err(serde::de::Error::custom("Failed to parse number"))
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Clone, Copy)]
 pub struct Coordinate {
     pub x: i32,
     pub y: i32,
     pub w: i32,
     pub h: i32,
+}
+
+impl<'de> Deserialize<'de> for Coordinate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Coord {
+            x: Number,
+            y: Number,
+            w: Number,
+            h: Number,
+        }
+
+        let coord: Coord = Deserialize::deserialize(deserializer)?;
+
+        Ok(Coordinate {
+            x: match coord.x {
+                Number::Int(val) => val,
+                Number::Float(val) => val as i32,
+            },
+            y: match coord.y {
+                Number::Int(val) => val,
+                Number::Float(val) => val as i32,
+            },
+            w: match coord.w {
+                Number::Int(val) => val,
+                Number::Float(val) => val as i32,
+            },
+            h: match coord.h {
+                Number::Int(val) => val,
+                Number::Float(val) => val as i32,
+            },
+        })
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]

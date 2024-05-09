@@ -224,19 +224,19 @@ pub fn process_image(model_size: &ModelSize, base64_image: &String) -> Processed
             *pixel = Luma([0u8]);
         }
     });
-    // 膨胀操作
-    let dilated_img = dilate(&blurred_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
     // 腐蚀操作
-    let eroded_img = erode(&dilated_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
+    let mor_img = erode(&blurred_img, Norm::LInf, 4);
+    // 膨胀操作
+    let mor_img = dilate(&mor_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
     
     let integral_gray:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&blurred_img);
-    let integral_morphology:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&eroded_img);
+    let integral_morphology:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&mor_img);
 
     ProcessedImages{
         org: Some(base64_image.clone()),
         rgb: rgb_img,
         gray: gray_img,
-        morphology: eroded_img,
+        morphology: mor_img,
         integral_gray: integral_gray,
         integral_morphology: integral_morphology,
     }

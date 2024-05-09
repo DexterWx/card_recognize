@@ -95,7 +95,7 @@ impl Baizheng for Engine {
                 }
             };
         }
-        
+
         // 初始化匹配成功的标记
         let mut is_match_dict: HashMap<usize, bool> = HashMap::new();
         for i in 0..imgs_and_model_points.len() {
@@ -116,7 +116,7 @@ impl Baizheng for Engine {
                     model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
                 };
                 let diff = match_page_and_img(&match_info, &img_and_model_points);
-                
+
                 if diff <= CONFIG.image_baizheng.page_number_diff{
                     let img_and_model_points = img_and_model_points.clone();
                     processed_images_res[index_scan] = Some(img_and_model_points.clone());
@@ -239,7 +239,7 @@ impl Baizheng for Engine {
             let rendering = trans_base64_to_image(&page_out.image_rendering.as_ref().expect("image_rendering is None"));
             let mut rendering = rendering.to_rgb8();
             let img_and_model_points = img_and_model_points.as_ref().expect("img_and_model_points is None");
-            
+
             let reference_model_points = ReferenceModelPoints{
                 model_points: &page.model_points_4.expect("model_points_4 is None"),
                 real_model_points: &img_and_model_points.real_model_points
@@ -249,29 +249,29 @@ impl Baizheng for Engine {
             for (point, fix_point) in assist_points.iter().zip(fix_assist_points.iter()){
                 let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left);
                 let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right);
-                draw_filled_rect_mut(  
-                    &mut rendering,   
-                    Rect::at(left_coor.x, left_coor.y).of_size(left_coor.w as u32, left_coor.h as u32),   
+                draw_filled_rect_mut(
+                    &mut rendering,
+                    Rect::at(left_coor.x, left_coor.y).of_size(left_coor.w as u32, left_coor.h as u32),
                     Rgb([255u8, 0u8, 0u8]),
-                );  
-
-                draw_filled_rect_mut(  
-                    &mut rendering,   
-                    Rect::at(right_coor.x, right_coor.y).of_size(right_coor.w as u32, right_coor.h as u32),   
-                    Rgb([255u8, 0u8, 0u8]),  
                 );
 
-                draw_filled_rect_mut(  
-                    &mut rendering,   
-                    Rect::at(fix_point.left.x, fix_point.left.y).of_size(fix_point.left.w as u32, fix_point.left.h as u32),   
+                draw_filled_rect_mut(
+                    &mut rendering,
+                    Rect::at(right_coor.x, right_coor.y).of_size(right_coor.w as u32, right_coor.h as u32),
+                    Rgb([255u8, 0u8, 0u8]),
+                );
+
+                draw_filled_rect_mut(
+                    &mut rendering,
+                    Rect::at(fix_point.left.x, fix_point.left.y).of_size(fix_point.left.w as u32, fix_point.left.h as u32),
                     Rgb([0u8, 0u8, 255u8]),
-                );  
-                
-                draw_filled_rect_mut(  
-                    &mut rendering,   
-                    Rect::at(fix_point.right.x, fix_point.right.y).of_size(fix_point.right.w as u32, fix_point.right.h as u32),   
-                    Rgb([0u8, 0u8, 255u8]),  
-                );  
+                );
+
+                draw_filled_rect_mut(
+                    &mut rendering,
+                    Rect::at(fix_point.right.x, fix_point.right.y).of_size(fix_point.right.w as u32, fix_point.right.h as u32),
+                    Rgb([0u8, 0u8, 255u8]),
+                );
             }
             let img_base64 = image_to_base64(&rendering);
             page_out.image_rendering = Some(img_base64);
@@ -308,7 +308,7 @@ impl Baizheng for Engine {
                 fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
                 fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range);
                 fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range);
-                
+
                 let move_op = generate_move_op([left_coor,right_coor], [fix_left_coor, fix_right_coor]);
                 move_hash.insert(point.left.y, move_op);
                 fix_assist_points.push(
@@ -317,8 +317,8 @@ impl Baizheng for Engine {
                         right: fix_right_coor.clone(),
                     }
                 );
-            }  
-            out_page.assist_points = Some(fix_assist_points); 
+            }
+            out_page.assist_points = Some(fix_assist_points);
         }
     }
 }
@@ -369,13 +369,17 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         if w<CONFIG.image_baizheng.model_point_min_wh || h<CONFIG.image_baizheng.model_point_min_wh{
             continue;
         }
+        if w>CONFIG.image_baizheng.model_point_max_wh || h>CONFIG.image_baizheng.model_point_max_wh{
+            continue;
+        }
+
         // 过滤影响定位点选择的框框，余弦相似度如果不够大说明不是定位点。
         if CONFIG.image_baizheng.model_point_wh_cosine_similarity > cosine_similarity(&vec![w as f32,h as f32], &vec![location_wh.0 as f32, location_wh.1 as f32]) {
             continue
         }
         let x = lt_box.x;
         let y = lt_box.y;
-        
+
         // 因为左上和右下定位点会受到考号影响，所以加一些限制
         // 左上的y一定要是全局最小可以过滤掉考号
         // x在1/4内可以过滤第一行中其他定位点的干扰
@@ -406,6 +410,21 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         }
     }
 
+    #[cfg(debug_assertions)]
+    {
+        let mut rendering = img.rgb.clone();
+        for point in [lt,rt,ld,rd].iter(){
+            draw_filled_circle_mut(&mut rendering,(point.x,point.y),3, Rgb([0,0,255]));
+            draw_filled_circle_mut(&mut rendering,(point.x + point.w,point.y+point.h),3, Rgb([0,0,255]));
+        }
+        let path_model_point = format!("dev/test_data/debug_model_points.jpg");
+        let _ = rendering.save(path_model_point);
+
+        let path_morphology = format!("dev/test_data/debug_path_morphology.jpg");
+        let _ = img.morphology.save(path_morphology);
+        
+    }
+    
     if !points4_is_valid(
         [
             (lt.x,lt.y),
@@ -416,7 +435,7 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
     ) {return Err(MyError::ErrorModelPointNotFound.into());}
 
     let mut points = [lt,rt,ld,rd];
-    
+
     rotate_img_and_model_points(img, &mut points);
 
     Ok(points)
@@ -531,7 +550,7 @@ fn fix_coordinate_by_search_nearby(img: &ProcessedImages, coordinate: &mut Coord
 fn match_page_and_img(
     baizheng_info: &RecInfoBaizheng, img_and_model_points: &ProcessedImagesAndModelPoints
 ) -> f32 {
-    
+
     // 输入图片可能是需要180翻转的，根据真实页码点填涂率和标注页码点填涂率的距离确定
     let diff = calculate_page_img_diff(
         baizheng_info.page_number_points,
@@ -663,5 +682,3 @@ pub fn fix_coordinate_use_assist_points(coordinate: &mut Coordinate, move_op: &O
     coordinate.x = new_point.0;
     coordinate.y = new_point.1;
 }
-
-
