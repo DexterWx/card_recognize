@@ -1,8 +1,8 @@
 image_process:
   gaussian_blur_sigma: 1.0
   binarization_threshold: 180
-  erode_kernel: 2
-  morphology_kernel: 5
+  erode_kernel: 1
+  morphology_kernel: 6
   empty_image_threshold: 253
 image_baizheng:
   page_number_diff: 0.21
