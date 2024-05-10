@@ -1,13 +1,14 @@
 use std::io::Cursor;
 
 use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
+use imageproc::contrast::threshold;
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate, Interpolation};
 use imageproc::morphology::{dilate, erode};
 use imageproc::{filter::gaussian_blur_f32, point::Point};
 use imageproc::integral_image::{integral_image, sum_image_pixels};
 
-use crate::models::engine_rec::{ProcessedImages, ReferenceModelPoints};
+use crate::models::engine_rec::{ProcessedImages, ProcessedImagesArgs, ReferenceModelPoints};
 use crate::models::scan_json::ModelSize;
 use crate::{config::CONFIG, models::{card::MyPoint, scan_json::Coordinate}};
 use super::math::*;
@@ -215,42 +216,50 @@ pub fn process_image(model_size: &ModelSize, base64_image: &String) -> Processed
     let rgb_img = img.to_rgb8();
     let gray_img = img.to_luma8();
     // 对灰度图像进行高斯模糊
-    let mut blurred_img = gaussian_blur_f32(&gray_img, CONFIG.image_process.gaussian_blur_sigma);
+    let blurred_img = gaussian_blur_f32(&gray_img, CONFIG.image_process.gaussian_blur_sigma);
     // 对模糊后的图像进行二值化
-    blurred_img.enumerate_pixels_mut().for_each(|(_, _, pixel)| {
-        if pixel[0] > CONFIG.image_process.binarization_threshold {
-            *pixel = Luma([255u8]);
-        } else {
-            *pixel = Luma([0u8]);
-        }
-    });
-    // 腐蚀操作,黑色变多
-    let mor_img = erode(&blurred_img, Norm::LInf, CONFIG.image_process.erode_kernel);
-    // 膨胀操作，白色变多
-    let mor_img = dilate(&mor_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
-    // 腐蚀操作,黑色变多
-    let mor_img = erode(&mor_img, Norm::LInf, CONFIG.image_process.morphology_kernel);
-    
-    let integral_gray:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&blurred_img);
+    let blurred_img_bi = threshold(&blurred_img, CONFIG.image_process.binarization_threshold);
+    // 生成形态学图的可调节参数
+    let _process_args = ProcessedImagesArgs::new(
+        CONFIG.image_process.binarization_threshold,
+        CONFIG.image_process.erode_kernel,
+        CONFIG.image_process.morphology_kernel
+    );
+    // 形态学变换图
+    let mor_img = _process_image(&blurred_img, &_process_args);
+
+    let integral_gray:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&blurred_img_bi);
     let integral_morphology:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&mor_img);
 
     ProcessedImages{
         org: Some(base64_image.clone()),
         rgb: rgb_img,
-        gray: gray_img,
+        blur: blurred_img,
         morphology: mor_img,
         integral_gray: integral_gray,
         integral_morphology: integral_morphology,
     }
 }
 
+fn _process_image(blurred_img: &ImageBuffer<Luma<u8>, Vec<u8>>, image_process_args: &ProcessedImagesArgs) -> ImageBuffer<Luma<u8>, Vec<u8>>{
+    // 对模糊后的图像进行二值化
+    let blurred_img_bi = threshold(&blurred_img, image_process_args.binarization_threshold);
+    // 腐蚀操作,黑色变多
+    let mor_img = erode(&blurred_img_bi, Norm::LInf, image_process_args.erode_kernel);
+    // 膨胀操作，白色变多
+    let mor_img = dilate(&mor_img, Norm::LInf, image_process_args.morphology_kernel);
+    // 腐蚀操作,黑色变多
+    let mor_img = erode(&mor_img, Norm::LInf, image_process_args.morphology_kernel);
+    mor_img
+}
+
 /// 旋转ProcessedImages
 pub fn rotate_processed_image(img: &mut ProcessedImages, center: &MyPoint, angle_radians: f32){
     let center = (center.x as f32, center.y as f32);
     img.rgb = rotate(&img.rgb, center, angle_radians, Interpolation::Bilinear, Rgb([255,255,255]));
-    img.gray = rotate(&img.gray, center, angle_radians, Interpolation::Bilinear, Luma([255]));
+    img.blur = rotate(&img.blur, center, angle_radians, Interpolation::Bilinear, Luma([255]));
     img.morphology = rotate(&img.morphology, center, angle_radians, Interpolation::Bilinear, Luma([255]));
-    img.integral_gray = integral_image(&img.gray);
+    img.integral_gray = integral_image(&img.blur);
     img.integral_morphology = integral_image(&img.morphology);
 }
 

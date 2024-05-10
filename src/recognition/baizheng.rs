@@ -354,7 +354,6 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
     let contours: Vec<Contour<i32>> = find_contours(&img.morphology);
 
     // 寻找四个定位点 x+y足够小、x-y足够大、x-y足够小、x+y足够大
-    // todo：有的答题卡的考号在左上角会影响寻找左上角定位点
     let mut lt = Coordinate{x:111111,y:111111,w:0,h:0};
     let mut rt = Coordinate{x:-111111,y:111111,w:0,h:0};
     let mut ld = Coordinate{x:111111,y:-111111,w:0,h:0};
@@ -364,6 +363,8 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         let [lt_box, rt_box, ld_box] = calculate_points_lt_rt_ld(&contour.points).expect("Calculate 3 Points Failed");
         let w = euclidean_distance((lt_box.x as f32,lt_box.y as f32), (rt_box.x as f32,rt_box.y as f32)) as i32;
         let h = euclidean_distance((lt_box.x as f32,lt_box.y as f32), (ld_box.x as f32,ld_box.y as f32)) as i32;
+        
+        // 过滤定位点宽高大小不符合的
         if w<CONFIG.image_baizheng.model_point_min_wh || h<CONFIG.image_baizheng.model_point_min_wh{
             continue;
         }
@@ -380,10 +381,6 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         let x = lt_box.x;
         let y = lt_box.y;
 
-        // 因为左上和右下定位点会受到考号影响，所以加一些限制
-        // 左上的y一定要是全局最小可以过滤掉考号
-        // x在1/4内可以过滤第一行中其他定位点的干扰
-        // 因为图片有可能是180旋转的，所以右下同理
         if x+y<lt.x+lt.y{
             lt.x = x;
             lt.y = y;
@@ -412,7 +409,6 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
     #[cfg(debug_assertions)]
     {
         let mut rendering = img.rgb.clone();
-        println!("{:?}",[lt,rt,ld,rd]);
         for coor in [lt,rt,ld,rd].iter(){
             draw_filled_circle_mut(&mut rendering,(coor.x,coor.y),3, Rgb([0,0,255]));
             draw_filled_circle_mut(&mut rendering,(coor.x + coor.w,coor.y+coor.h),3, Rgb([0,0,255]));
@@ -424,7 +420,7 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         let _ = img.morphology.save(path_morphology);
 
         let path_gray = format!("dev/test_data/debug_path_gray.jpg");
-        let _ = img.gray.save(path_gray);
+        let _ = img.blur.save(path_gray);
         
     }
     
@@ -435,7 +431,10 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
             (ld.x,ld.y),
             (rd.x,rd.y),
         ]
-    ) {return Err(MyError::ErrorModelPointNotFound.into());}
+    ) {
+        println!("找到的4个定位点不符合要求 {:?}",[lt,rt,ld,rd]);
+        return Err(MyError::ErrorModelPointNotFound.into());
+    }
 
     let mut points = [lt,rt,ld,rd];
 

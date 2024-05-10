@@ -1,4 +1,4 @@
-use crate::{config::CONFIG, models::card::MyPoint};
+use crate::{config::CONFIG, models::{card::MyPoint, scan_json::Coordinate}};
 
 /// 余弦相似度
 pub fn cosine_similarity(vec1: &[f32], vec2: &[f32]) -> f32 {
@@ -31,6 +31,11 @@ pub fn points4_is_valid(points: [(i32, i32); 4]) -> bool{
     if diff_x > CONFIG.image_baizheng.model_point_diff{return false;}
     if diff_y > CONFIG.image_baizheng.model_point_diff{return false;}
     true
+}
+
+// 如果有三个定位点是正常的，根据这三个点修复第四个点
+pub fn fix_coordiante_use_other_3_coordiante(_coors: &mut [Coordinate; 4]) {
+
 }
 
 // 计算线段夹角

@@ -46,14 +46,31 @@ pub mod engine_rec{
         pub org: Option<String>,
         /// 原始rgb图
         pub rgb: RgbImage,
-        /// 二值灰度图
-        pub gray: GrayImage,
+        /// 高斯模糊图，用于后续调参数生成不同的形态图
+        pub blur: GrayImage,
         /// 形态学处理
         pub morphology: GrayImage,
         /// 二值灰度积分图，用来求区域像素值总和
         pub integral_gray: ImageBuffer<Luma<i64>, Vec<i64>>,
         /// 形态学处理积分图，用来求区域像素值总和
         pub integral_morphology: ImageBuffer<Luma<i64>, Vec<i64>>
+    }
+
+    #[derive(Clone)]
+    pub struct ProcessedImagesArgs{
+        pub binarization_threshold: u8,
+        pub erode_kernel: u8,
+        pub morphology_kernel: u8
+    }
+    impl ProcessedImagesArgs {
+        // 构造函数
+        pub fn new(binarization_threshold: u8, erode_kernel: u8, morphology_kernel: u8) -> Self {
+            Self {
+                binarization_threshold,
+                erode_kernel,
+                morphology_kernel
+            }
+        }
     }
 
     #[derive(Clone)]
