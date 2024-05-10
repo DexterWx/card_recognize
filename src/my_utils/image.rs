@@ -328,3 +328,27 @@ pub fn variance_in_rect(img: &ImageBuffer<image::Luma<u8>, Vec<u8>>, rect: &Coor
 
     variance
 }
+
+pub fn standard_deviation_in_rect(img: &ImageBuffer<image::Luma<u8>, Vec<u8>>, rect: &Coordinate) -> f32 {
+    // 提取矩形范围内像素值
+    let mut pixel_values = Vec::new();
+    for y in rect.y..(rect.y + rect.h) {
+        for x in rect.x..(rect.x + rect.w) {
+            let pixel = img.get_pixel(x as u32, y as u32);
+            let gray_value = pixel.0[0] as f32; // 假设是灰度图像
+            pixel_values.push(gray_value);
+        }
+    }
+
+    // 计算标准差
+    let n = pixel_values.len() as f32;
+    let mean = pixel_values.iter().sum::<f32>() / n;
+    let variance = pixel_values.iter().fold(0.0, |acc, &x| {
+        let diff = x - mean;
+        acc + diff * diff
+    }) / n;
+    let standard_deviation = variance.sqrt(); // 计算标准差，即方差的平方根
+
+    standard_deviation
+}
+

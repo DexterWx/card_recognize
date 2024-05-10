@@ -69,6 +69,7 @@ impl Baizheng for Engine {
         // 并根据定位点进行小角度摆正
         // 将img和定位点组成后续公用的图结构ProcessedImagesAndModelPoints
         let mut imgs_and_model_points = Vec::new();
+
         for img in imgs.iter_mut(){
             let coordinates = generate_location_and_rotate(img, location_wh);
             match coordinates{
@@ -348,10 +349,6 @@ pub fn rotate_img_and_model_points(img: &mut ProcessedImages, mut coors: &mut [C
 /// 靠图片寻找定位点并进行小角度摆正
 /// 输出四个定位点并小角度摆正输入的图片
 fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i32)) -> Result<[Coordinate;4]>{
-    // todo: 定位点过滤补丁，后面需要优化
-    let w = img.rgb.width();
-    let lt_x_must_less = ((w as f32) / (4 as f32)) as i32;
-    let rd_x_must_more = ((w as f32) / (4 as f32) * 3.0) as i32;
 
     // 查找图像中的轮廓
     let contours: Vec<Contour<i32>> = find_contours(&img.morphology);
@@ -380,18 +377,6 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
             continue
         }
 
-        let _var = variance_in_rect(
-            &img.gray,
-            &Coordinate{
-                x:lt_box.x,
-                y:lt_box.y,
-                w:w,
-                h:h
-            }
-        );
-
-        if _var>10500f32{continue;}
-
         let x = lt_box.x;
         let y = lt_box.y;
 
@@ -399,7 +384,7 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         // 左上的y一定要是全局最小可以过滤掉考号
         // x在1/4内可以过滤第一行中其他定位点的干扰
         // 因为图片有可能是180旋转的，所以右下同理
-        if y<lt.y && x<lt_x_must_less{
+        if x+y<lt.x+lt.y{
             lt.x = x;
             lt.y = y;
             lt.w = w;
@@ -417,7 +402,7 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
             ld.w = w;
             ld.h = h;
         }
-        if y>rd.y && x>rd_x_must_more {
+        if x+y>rd.x+rd.y {
             rd.x = x;
             rd.y = y;
             rd.w = w;
@@ -431,8 +416,6 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         for coor in [lt,rt,ld,rd].iter(){
             draw_filled_circle_mut(&mut rendering,(coor.x,coor.y),3, Rgb([0,0,255]));
             draw_filled_circle_mut(&mut rendering,(coor.x + coor.w,coor.y+coor.h),3, Rgb([0,0,255]));
-            let _var = variance_in_rect(&img.gray, &coor);
-            println!("定位点方差: {_var:?}");
         }
         let path_model_point = format!("dev/test_data/debug_model_points.jpg");
         let _ = rendering.save(path_model_point);
