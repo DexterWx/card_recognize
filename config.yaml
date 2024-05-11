@@ -6,8 +6,14 @@ image_process:
       erode_kernel: 1
       morphology_kernel: 5
     - binarization_threshold: 172
-      erode_kernel: 1
+      erode_kernel: 2
       morphology_kernel: 5
+    - binarization_threshold: 172
+      erode_kernel: 2
+      morphology_kernel: 6
+    - binarization_threshold: 172
+      erode_kernel: 3
+      morphology_kernel: 6
 image_baizheng:
   page_number_diff: 0.21
   model_point_wh_cosine_similarity: 0.985

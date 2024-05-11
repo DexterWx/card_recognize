@@ -4,7 +4,7 @@ use std::cmp::min;
 use std::f32::consts::PI;
 use std::collections::HashMap;
 
-use anyhow::Result;
+
 use image::ImageBuffer;
 use image::Luma;
 use image::Rgb;
@@ -12,7 +12,7 @@ use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
 use imageproc::drawing::draw_filled_circle_mut;
 use imageproc::drawing::draw_filled_rect_mut;
-use imageproc::integral_image::integral_image;
+
 use imageproc::integral_image::sum_image_pixels;
 use imageproc::rect::Rect;
 
@@ -21,11 +21,11 @@ use crate::models::engine_rec::LocationInfo;
 use crate::models::engine_rec::ProcessedImages;
 use crate::models::engine_rec::ReferenceModelPoints;
 use crate::models::engine_rec::{ProcessedImagesAndModelPoints, RecInfoBaizheng};
-use crate::models::my_error::MyError;
+
 use crate::models::rec_result::ImageStatus;
 use crate::models::rec_result::MoveOperation;
 use crate::models::rec_result::OutputRec;
-use crate::models::rec_result::PageSize;
+
 use crate::models::scan_json::AssistPoint;
 use crate::models::scan_json::InputImage;
 use crate::models::scan_json::PageNumberPoint;
