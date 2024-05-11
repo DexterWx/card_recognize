@@ -7,11 +7,26 @@ use std::io::BufReader;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImageProcess {
     pub gaussian_blur_sigma: f32,
-    pub binarization_threshold: u8,
-    pub erode_kernel: u8,
-    pub morphology_kernel: u8,
+    pub retry_args: Vec<ProcessedImagesArgs>,
     pub empty_image_threshold: u8
 }
+/// 需要多次尝试的参数
+#[derive(Debug, Deserialize, Serialize)]
+    pub struct ProcessedImagesArgs{
+        pub binarization_threshold: u8,
+        pub erode_kernel: u8,
+        pub morphology_kernel: u8
+    }
+    impl ProcessedImagesArgs {
+        // 构造函数
+        pub fn new(binarization_threshold: u8, erode_kernel: u8, morphology_kernel: u8) -> Self {
+            Self {
+                binarization_threshold,
+                erode_kernel,
+                morphology_kernel
+            }
+        }
+    }
 
 /// 图片摆正处理参数
 #[derive(Debug, Deserialize, Serialize)]

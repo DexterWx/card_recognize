@@ -72,7 +72,7 @@ impl Baizheng for Engine {
         );
         let location_info = LocationInfo::new(location_wh, self.get_scan_data().is_in_seal);
         for img in imgs.iter_mut(){
-            let coordinates = generate_location_and_rotate(img, location_wh);
+            let coordinates = _generate_location_and_rotate(img, location_wh);
             match coordinates{
                 // 找到定位点
                 Ok(coordinates) => {
@@ -88,11 +88,7 @@ impl Baizheng for Engine {
                     let _base64 = img.org.as_ref().expect("org is None");
                     let image_status = ImageStatus {
                         image_source: _base64.clone(),
-                        code: 1,
-                        page_size: PageSize {
-                            w: img.rgb.width() as i32,
-                            h: img.rgb.height() as i32,
-                        },
+                        code: 1
                     };
                     output.images.push(image_status);
                 }
@@ -135,14 +131,9 @@ impl Baizheng for Engine {
         for (index, flag) in is_match_dict.iter() {
             if *flag {
                 let _base64 = imgs_and_model_points[*index].img.org.as_ref().expect("org is None");
-                let _img = trans_base64_to_image(&_base64);
                 let image_status = ImageStatus {
                     image_source: _base64.clone(),
-                    code: 0,
-                    page_size: PageSize {
-                        w: _img.width() as i32,
-                        h: _img.height() as i32,
-                    },
+                    code: 0
                 };
                 output.images.push(image_status);
                 continue
@@ -179,14 +170,9 @@ impl Baizheng for Engine {
         // 把剩余的180翻转图片匹配情况写入结果
         for (index, flag) in is_match_dict.iter() {
             let _base64 = imgs_and_model_points_180[*index].img.org.as_ref().expect("org is None");
-            let _img = trans_base64_to_image(&_base64);
             let image_status = ImageStatus {
                 image_source: _base64.clone(),
-                code: if *flag { 0 } else { 1 },
-                page_size: PageSize {
-                    w: _img.width() as i32,
-                    h: _img.height() as i32,
-                },
+                code: if *flag { 0 } else { 1 }
             };
             output.images.push(image_status);
         }
@@ -347,12 +333,19 @@ pub fn rotate_img_and_model_points(img: &mut ProcessedImages, mut coors: &mut [C
 }
 
 
+fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &LocationInfo){
+    for args in CONFIG.image_process.retry_args.iter(){
+        let img_mor: ImageBuffer<Luma<u8>, Vec<u8>> = generate_mophology_from_blur(&img.blur, args);
+        let model_points = generate_location(&img_mor, location_info);
+    }
+}
+
 /// 靠图片寻找定位点并进行小角度摆正
 /// 输出四个定位点并小角度摆正输入的图片
-fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i32)) -> Result<[Coordinate;4]>{
+fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &LocationInfo) -> Result<[Coordinate;4]>{
 
     // 查找图像中的轮廓
-    let contours: Vec<Contour<i32>> = find_contours(&img.morphology);
+    let contours: Vec<Contour<i32>> = find_contours(img);
 
     // 寻找四个定位点 x+y足够小、x-y足够大、x-y足够小、x+y足够大
     let mut lt = Coordinate{x:111111,y:111111,w:0,h:0};
@@ -374,7 +367,7 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_wh: (i32, i3
         }
 
         // 过滤影响定位点选择的框框，余弦相似度如果不够大说明不是定位点。
-        let cos = cosine_similarity(&vec![w as f32,h as f32], &vec![location_wh.0 as f32, location_wh.1 as f32]);
+        let cos = cosine_similarity(&vec![w as f32,h as f32], &vec![location_info.wh.0 as f32, location_info.wh.1 as f32]);
         if CONFIG.image_baizheng.model_point_wh_cosine_similarity > cos{
             continue
         }

@@ -21,8 +21,7 @@ pub struct OutputRec{
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ImageStatus{
     pub image_source: String,
-    pub code: u8,
-    pub page_size: PageSize
+    pub code: u8
 }
 
 #[derive(Debug, Serialize, Deserialize)]

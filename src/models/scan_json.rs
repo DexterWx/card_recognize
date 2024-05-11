@@ -150,7 +150,7 @@ impl InputScan{
         for page in &self.pages{
             pages.push(page.renew());
         }
-        Self { pages: pages, card_type: self.card_type }
+        Self { pages: pages, card_type: self.card_type, is_in_seal: self.is_in_seal }
     }
 }
 

@@ -69,23 +69,6 @@ pub mod engine_rec{
     }
 
     #[derive(Clone)]
-    pub struct ProcessedImagesArgs{
-        pub binarization_threshold: u8,
-        pub erode_kernel: u8,
-        pub morphology_kernel: u8
-    }
-    impl ProcessedImagesArgs {
-        // 构造函数
-        pub fn new(binarization_threshold: u8, erode_kernel: u8, morphology_kernel: u8) -> Self {
-            Self {
-                binarization_threshold,
-                erode_kernel,
-                morphology_kernel
-            }
-        }
-    }
-
-    #[derive(Clone)]
     pub struct ProcessedImagesAndModelPoints{
         pub img: ProcessedImages,
         pub real_model_points: [Coordinate;4]
