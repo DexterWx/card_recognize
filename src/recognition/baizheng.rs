@@ -72,10 +72,10 @@ impl Baizheng for Engine {
         );
         let location_info = LocationInfo::new(location_wh, self.get_scan_data().is_in_seal);
         for img in imgs.iter_mut(){
-            let coordinates = _generate_location_and_rotate(img, location_wh);
+            let coordinates = generate_location_and_rotate(img, &location_info);
             match coordinates{
                 // 找到定位点
-                Ok(coordinates) => {
+                Some(coordinates) => {
                     imgs_and_model_points.push(
                         ProcessedImagesAndModelPoints{
                             img: img.clone(),
@@ -84,7 +84,7 @@ impl Baizheng for Engine {
                     );
                 }
                 // 如果寻找定位点失败，直接把图片置为失败状态
-                Err(_err) => {
+                None => {
                     let _base64 = img.org.as_ref().expect("org is None");
                     let image_status = ImageStatus {
                         image_source: _base64.clone(),
@@ -333,16 +333,27 @@ pub fn rotate_img_and_model_points(img: &mut ProcessedImages, mut coors: &mut [C
 }
 
 
-fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &LocationInfo){
+fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &LocationInfo) -> Option<[Coordinate;4]>{
     for args in CONFIG.image_process.retry_args.iter(){
         let img_mor: ImageBuffer<Luma<u8>, Vec<u8>> = generate_mophology_from_blur(&img.blur, args);
         let model_points = generate_location(&img_mor, location_info);
+        if model_points.is_none(){continue};
+        let mut model_points = model_points.unwrap();
+        rotate_img_and_model_points(img, &mut model_points);
+
+        #[cfg(debug_assertions)]
+        {
+            debug_rendering_process_image(img, &model_points);
+        }
+
+        return Some(model_points);
     }
+    None
 }
 
 /// 靠图片寻找定位点并进行小角度摆正
 /// 输出四个定位点并小角度摆正输入的图片
-fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &LocationInfo) -> Result<[Coordinate;4]>{
+fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &LocationInfo) -> Option<[Coordinate;4]>{
 
     // 查找图像中的轮廓
     let contours: Vec<Contour<i32>> = find_contours(img);
@@ -400,23 +411,6 @@ fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &Locat
             rd.h = h;
         }
     }
-    #[cfg(debug_assertions)]
-    {
-        let mut rendering = img.rgb.clone();
-        for coor in [lt,rt,ld,rd].iter(){
-            draw_filled_circle_mut(&mut rendering,(coor.x,coor.y),3, Rgb([0,0,255]));
-            draw_filled_circle_mut(&mut rendering,(coor.x + coor.w,coor.y+coor.h),3, Rgb([0,0,255]));
-        }
-        let path_model_point = format!("dev/test_data/debug_model_points.jpg");
-        let _ = rendering.save(path_model_point);
-
-        let path_morphology = format!("dev/test_data/debug_path_morphology.jpg");
-        let _ = img.morphology.save(path_morphology);
-
-        let path_gray = format!("dev/test_data/debug_path_gray.jpg");
-        let _ = img.blur.save(path_gray);
-        
-    }
     
     if !points4_is_valid(
         [
@@ -427,14 +421,10 @@ fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &Locat
         ]
     ) {
         println!("找到的4个定位点不符合要求 {:?}",[lt,rt,ld,rd]);
-        return Err(MyError::ErrorModelPointNotFound.into());
+        return None;
     }
 
-    let mut points = [lt,rt,ld,rd];
-
-    rotate_img_and_model_points(img, &mut points);
-
-    Ok(points)
+    Some([lt,rt,ld,rd])
 }
 
 fn rotate_model_points(points: &mut [Coordinate;4], center: &MyPoint, angle_radian: f32){
@@ -677,4 +667,21 @@ pub fn fix_coordinate_use_assist_points(coordinate: &mut Coordinate, move_op: &O
     );
     coordinate.x = new_point.0;
     coordinate.y = new_point.1;
+}
+
+
+fn debug_rendering_process_image(img: &mut ProcessedImages, model_points: &[Coordinate;4]){
+    let mut rendering = img.rgb.clone();
+    for coor in model_points.iter(){
+        draw_filled_circle_mut(&mut rendering,(coor.x,coor.y),3, Rgb([0,0,255]));
+        draw_filled_circle_mut(&mut rendering,(coor.x + coor.w,coor.y+coor.h),3, Rgb([0,0,255]));
+    }
+    let path_model_point = format!("dev/test_data/debug_model_points.jpg");
+    let _ = rendering.save(path_model_point);
+
+    let path_morphology = format!("dev/test_data/debug_path_morphology.jpg");
+    let _ = img.morphology.save(path_morphology);
+
+    let path_gray = format!("dev/test_data/debug_path_gray.jpg");
+    let _ = img.blur.save(path_gray);
 }
