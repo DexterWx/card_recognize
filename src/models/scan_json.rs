@@ -8,6 +8,7 @@ use serde::{Serialize, Deserialize, de::Deserializer};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InputScan {
     pub pages: Vec<Page>,
+    pub is_in_seal: bool,
     pub card_type: u8
 }
 

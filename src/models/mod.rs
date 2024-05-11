@@ -33,6 +33,18 @@ pub mod engine_rec{
         pub page_number_points: &'a Vec<PageNumberPoint>
     }
 
+    /// 找定位点需要的信息
+    pub struct LocationInfo{
+        pub wh: (i32,i32),
+        pub is_in_seal: bool
+    }
+
+    impl LocationInfo {
+        pub fn new(wh: (i32, i32), is_in_seal: bool) -> Self {
+            LocationInfo { wh, is_in_seal }
+        }
+    }
+
     /// 标注定位点和实际定位点，用来参照计算其他标注框的真实坐标
     pub struct ReferenceModelPoints<'a>{
         pub model_points: &'a [ModelPoint;4],

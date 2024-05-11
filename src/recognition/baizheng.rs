@@ -17,6 +17,7 @@ use imageproc::integral_image::sum_image_pixels;
 use imageproc::rect::Rect;
 
 
+use crate::models::engine_rec::LocationInfo;
 use crate::models::engine_rec::ProcessedImages;
 use crate::models::engine_rec::ReferenceModelPoints;
 use crate::models::engine_rec::{ProcessedImagesAndModelPoints, RecInfoBaizheng};
@@ -59,17 +60,17 @@ impl Baizheng for Engine {
             if mean_pixel > CONFIG.image_process.empty_image_threshold as i64{continue;}
             imgs.push(img);
         }
-        // 获取定位点wh，用于筛选定位点
-        // todo: 后期可以抽象一下，目前只想到这一个
-        let location_wh = (
-            self.get_scan_data().pages[0].model_points[0].coordinate.w,
-            self.get_scan_data().pages[0].model_points[0].coordinate.h,
-        );
         // 计算每张图片真实定位点
         // 并根据定位点进行小角度摆正
         // 将img和定位点组成后续公用的图结构ProcessedImagesAndModelPoints
         let mut imgs_and_model_points = Vec::new();
 
+        // 定位点信息
+        let location_wh = (
+            self.get_scan_data().pages[0].model_points[0].coordinate.w,
+            self.get_scan_data().pages[0].model_points[0].coordinate.h,
+        );
+        let location_info = LocationInfo::new(location_wh, self.get_scan_data().is_in_seal);
         for img in imgs.iter_mut(){
             let coordinates = generate_location_and_rotate(img, location_wh);
             match coordinates{
