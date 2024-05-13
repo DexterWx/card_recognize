@@ -1,9 +1,22 @@
 image_process:
   gaussian_blur_sigma: 1.0
-  binarization_threshold: 180
-  erode_kernel: 1
-  morphology_kernel: 6
   empty_image_threshold: 253
+  retry_args:
+    - binarization_threshold: 172
+      erode_kernel: 1
+      morphology_kernel: 5
+    - binarization_threshold: 172
+      erode_kernel: 2
+      morphology_kernel: 5
+    - binarization_threshold: 172
+      erode_kernel: 2
+      morphology_kernel: 6
+    - binarization_threshold: 172
+      erode_kernel: 3
+      morphology_kernel: 6
+    - binarization_threshold: 172
+      erode_kernel: 0
+      morphology_kernel: 6
 image_baizheng:
   page_number_diff: 0.21
   model_point_wh_cosine_similarity: 0.985
