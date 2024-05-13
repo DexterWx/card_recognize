@@ -8,6 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InputScan {
     pub pages: Vec<Page>,
+    pub is_in_seal: bool,
     pub card_type: u8
 }
 
@@ -20,7 +21,7 @@ pub struct InputImage {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Page {
-    pub card_columns: u8, 
+    pub card_columns: u8,
     pub model_size: ModelSize,
     pub model_points: Vec<ModelPoint>,
     pub page_number_points: Vec<PageNumberPoint>,
@@ -76,6 +77,13 @@ pub struct Coordinate {
     pub y: i32,
     pub w: i32,
     pub h: i32,
+}
+
+impl Coordinate {
+    // 构造函数，创建一个新的 Coordinate 实例
+    pub fn new(x: i32, y: i32, w: i32, h: i32) -> Self {
+        Self { x, y, w, h }
+    }
 }
 
 impl<'de> Deserialize<'de> for Coordinate {
@@ -149,7 +157,7 @@ impl InputScan{
         for page in &self.pages{
             pages.push(page.renew());
         }
-        Self { pages: pages, card_type: self.card_type }
+        Self { pages: pages, card_type: self.card_type, is_in_seal: self.is_in_seal }
     }
 }
 

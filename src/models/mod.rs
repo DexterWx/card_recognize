@@ -33,6 +33,18 @@ pub mod engine_rec{
         pub page_number_points: &'a Vec<PageNumberPoint>
     }
 
+    /// 找定位点需要的信息
+    pub struct LocationInfo{
+        pub wh: (i32,i32),
+        pub is_in_seal: bool
+    }
+
+    impl LocationInfo {
+        pub fn new(wh: (i32, i32), is_in_seal: bool) -> Self {
+            LocationInfo { wh, is_in_seal }
+        }
+    }
+
     /// 标注定位点和实际定位点，用来参照计算其他标注框的真实坐标
     pub struct ReferenceModelPoints<'a>{
         pub model_points: &'a [ModelPoint;4],
@@ -46,8 +58,8 @@ pub mod engine_rec{
         pub org: Option<String>,
         /// 原始rgb图
         pub rgb: RgbImage,
-        /// 二值灰度图
-        pub gray: GrayImage,
+        /// 高斯模糊图，用于后续调参数生成不同的形态图
+        pub blur: GrayImage,
         /// 形态学处理
         pub morphology: GrayImage,
         /// 二值灰度积分图，用来求区域像素值总和
