@@ -16,6 +16,7 @@ image_process:
       morphology_kernel: 6
 image_baizheng:
   page_number_diff: 0.21
+  model_points_3_angle_threshold: 1.0
   model_point_wh_cosine_similarity: 0.985
   model_point_min_wh: 10
   model_point_max_wh: 70

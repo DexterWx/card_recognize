@@ -33,27 +33,34 @@ pub fn coordinates4_is_valid(coors: &[Coordinate; 4]) -> bool{
     true
 }
 
-pub fn coordinates3_is_valid(coors: &[Coordinate; 4]) -> bool{
-    // 四个顶点为夹角，分别判断是否符合3点条件
+/// 从四个定位点中选三个合理的顶点
+pub fn find_3_valid_coordinates(coors: &[Coordinate; 4]) -> Option<[Coordinate; 3]>{
+    // 四个顶点分别为夹角，判断是否符合3点直角条件
     let valid_indexs = vec![
         (2,0,1),
         (0,1,3),
         (3,2,0),
         (1,3,2),
     ];
+    let mut min_diff_indexs = None;
+    let mut min_diff = 361f32;
     for index in valid_indexs.iter(){
         let coor3 = [&coors[index.0],&coors[index.1],&coors[index.2]];
         let angle = calculate_coordinates_angle(&coor3);
-        
+        let angle_diff = (angle - 90f32).abs();
+        if angle_diff >= CONFIG.image_baizheng.model_points_3_angle_threshold {continue}
+        if angle_diff < min_diff {
+            min_diff = angle_diff;
+            min_diff_indexs = Some([coors[index.0], coors[index.1], coors[index.2]]);
+        }
     }
-    true
+    min_diff_indexs
 }
 
-
 fn calculate_coordinates_angle(coors: &[&Coordinate; 3]) -> f32 {
-    let a = &coors[0]; // 第一个坐标点
-    let b = &coors[1]; // 第二个坐标点（夹角点）
-    let c = &coors[2]; // 第三个坐标点
+    let a = coors[0]; // 第一个坐标点
+    let b = coors[1]; // 第二个坐标点（夹角点）
+    let c = coors[2]; // 第三个坐标点
 
     // 计算从 b 到 a 和 c 的向量
     let vec1 = ((a.x - b.x) as f32, (a.y - b.y) as f32);
@@ -76,9 +83,32 @@ fn calculate_coordinates_angle(coors: &[&Coordinate; 3]) -> f32 {
 }
 
 
-// 如果有三个定位点是正常的，根据这三个点修复第四个点
-pub fn fix_coordiante_use_other_3_coordiante(_coors: &mut [Coordinate; 4]) {
+// 如果有三个定位点是正常的，根据这三个点生成第四个点,生成的点是中间点的对角点
+pub fn predict_model_points_with_3_coordinate(coors: &[Coordinate; 3]) -> [Coordinate; 4]{
+    let w = (coors[0].w + coors[1].w + coors[2].w)/3;
+    let h = (coors[0].h + coors[1].h + coors[2].h)/3;
+    let x = coors[0].x - coors[1].x + coors[2].x;
+    let y = coors[0].y - coors[1].y + coors[2].y;
+    let mut _coors = [coors[0],coors[1],coors[2],Coordinate::new(x,y,w,h)];
+    get_sort_coordinates(_coors)
+}
 
+// [lt, rt, ld, rd]排序
+fn get_sort_coordinates(mut coors: [Coordinate; 4]) -> [Coordinate; 4] {
+
+    coors.sort_by_key(|c| c.x+c.y);
+    let coor1 = coors[0];
+
+    coors.sort_by_key(|c| c.x-c.y);
+    let coor2 = coors[3];
+
+    coors.sort_by_key(|c| c.x-c.y);
+    let coor3 = coors[0];
+
+    coors.sort_by_key(|c| c.x+c.y);
+    let coor4 = coors[3];
+
+    [coor1, coor2, coor3, coor4]
 }
 
 // 计算线段夹角

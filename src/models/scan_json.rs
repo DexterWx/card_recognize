@@ -79,6 +79,13 @@ pub struct Coordinate {
     pub h: i32,
 }
 
+impl Coordinate {
+    // 构造函数，创建一个新的 Coordinate 实例
+    pub fn new(x: i32, y: i32, w: i32, h: i32) -> Self {
+        Self { x, y, w, h }
+    }
+}
+
 impl<'de> Deserialize<'de> for Coordinate {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

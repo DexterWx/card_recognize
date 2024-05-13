@@ -33,6 +33,7 @@ pub struct ImageProcess {
 pub struct ImageBaizheng {
     pub page_number_diff: f32,
     pub model_point_wh_cosine_similarity: f32,
+    pub model_points_3_angle_threshold: f32,
     pub model_point_min_wh: i32,
     pub model_point_max_wh: i32,
     pub model_point_diff: i32,
@@ -75,49 +76,9 @@ pub struct Config {
 }
 
 // 全局配置单例
-#[cfg(debug_assertions)]
 pub static CONFIG: Lazy<Config> = Lazy::new(|| {
     // 读取配置文件
     let file = File::open("config.yaml").expect("Failed to open config file");
     let reader = BufReader::new(file);
     serde_yaml::from_reader(reader).expect("Failed to parse config")
 });
-
-
-#[cfg(not(debug_assertions))]
-pub static CONFIG: Config = Config{
-    image_process: ImageProcess{
-        gaussian_blur_sigma: 1.0,
-        binarization_threshold: 180,
-        erode_kernel: 3,
-        morphology_kernel: 5,
-        empty_image_threshold: 253,
-    },
-    image_baizheng: ImageBaizheng{
-        page_number_diff: 0.21,
-        model_point_wh_cosine_similarity: 0.985,
-        model_point_min_wh: 12,
-        model_point_max_wh: 70,
-        model_point_diff: 50,
-        model_point_scan_range: 6,
-        assist_point_scan_range: 8,
-        assist_point_min_distance: 6,
-        assist_point_max_distance: 25,
-        model_point_min_distance: 12,
-        model_point_max_distance: 80,
-        assist_point_nearby_length: 4
-    },
-    image_blackfill: ImageBlackFill{
-        neighborhood_size: 5,
-        image_type: 0,
-        min_filled_ratio: 0.7
-    },
-    recognize_type: RecognitionType{
-        black_fill: 1,
-        vx: 2,
-        number: 3,
-        qrcode: 4,
-        barcode: 5,
-        coordinate: 6,
-    }
-};

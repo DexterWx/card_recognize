@@ -28,12 +28,15 @@ use crate::models::rec_result::OutputRec;
 
 use crate::models::scan_json::AssistPoint;
 use crate::models::scan_json::InputImage;
+
 use crate::models::scan_json::PageNumberPoint;
 use crate::models::scan_json::Coordinate;
 use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
 use crate::my_utils::math::cal_segment_angle;
 use crate::my_utils::math::coordinates4_is_valid;
+use crate::my_utils::math::find_3_valid_coordinates;
+use crate::my_utils::math::predict_model_points_with_3_coordinate;
 use crate::my_utils::math::{cosine_similarity, euclidean_distance};
 use crate::config::CONFIG;
 
@@ -183,8 +186,9 @@ impl Baizheng for Engine {
             let processed_image_and_points = processed_image_and_points.as_mut().unwrap();
             let img = &mut processed_image_and_points.img;
             let coors = &mut processed_image_and_points.real_model_points;
+            let center_and_angle = calculate_rotate_angle_with_2_coordinates(&[coors[0],coors[1]]);
             fix_model_points_coordinate(img, coors, CONFIG.image_baizheng.model_point_scan_range);
-            rotate_img_and_model_points(img, coors);
+            rotate_img_and_model_points(img, coors, &center_and_angle.center, center_and_angle.angle);
         }
 
         // 查看精细修复后的匹配率
@@ -317,13 +321,7 @@ impl Baizheng for Engine {
 // todo: 如果答题卡被折过，这种方法会有误差。
 // 后面可以增加一种对定位点位置的判断，猜测纸张是否可能被折过
 // 如果被折过，使用左侧两点后右侧两点分别对办张图片摆正，两边的框分开定位。
-pub fn rotate_img_and_model_points(img: &mut ProcessedImages, mut coors: &mut [Coordinate;4]){
-
-    let angle_radians1 = (coors[1].y as f32 - coors[0].y as f32).atan2(coors[1].x as f32 - coors[0].x as f32);
-    let angle_radian = -angle_radians1;
-
-    // 旋转之前保存中心点
-    let center = MyPoint { x: coors[0].x as i32, y: coors[0].y as i32 };
+pub fn rotate_img_and_model_points(img: &mut ProcessedImages, mut coors: &mut [Coordinate;4], center: &MyPoint, angle_radian: f32){
 
     // 对图像进行旋转
     rotate_processed_image(img, &center, angle_radian);
@@ -332,21 +330,56 @@ pub fn rotate_img_and_model_points(img: &mut ProcessedImages, mut coors: &mut [C
     rotate_model_points(&mut coors, &center, angle_radian);
 }
 
+fn calculate_rotate_angle_with_2_coordinates(coors: &[Coordinate;2]) -> CenterAndAngle{
+    let angle_radians = (coors[1].y as f32 - coors[0].y as f32).atan2(coors[1].x as f32 - coors[0].x as f32);
+    CenterAndAngle::new(MyPoint::new(coors[0].x,coors[0].y), -angle_radians)
+}
+
+fn calculate_rotate_angle_with_3_coordinates(coors: &[Coordinate;3]) -> CenterAndAngle{
+    let mut center = coors[1].clone();
+    let mut other = coors[1].clone();
+    if (coors[0].y - coors[1].y).abs() > 500{
+        if coors[1].x < coors[2].x{
+            other = coors[2].clone();
+        }
+        else {
+            center = coors[2].clone();
+        }
+    }
+    else {
+        if coors[1].x < coors[0].x{
+            other = coors[0].clone();
+        }
+        else {
+            center = coors[0].clone();
+        }
+    }
+    calculate_rotate_angle_with_2_coordinates(&[center.clone(), other.clone()])
+}
+
 
 fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &LocationInfo) -> Option<[Coordinate;4]>{
     for (i, args) in CONFIG.image_process.retry_args.iter().enumerate(){
         let img_mor: ImageBuffer<Luma<u8>, Vec<u8>> = generate_mophology_from_blur(&img.blur, args);
         let mut model_points = generate_location(&img_mor, location_info);
+        let mut center_and_angle = calculate_rotate_angle_with_2_coordinates(&[model_points[0],model_points[1]]);
         if !coordinates4_is_valid(&model_points) {
-            #[cfg(debug_assertions)]
-            {
-                println!("找到的4个定位点不符合要求 {:?}",model_points);
-                debug_rendering_failed_model_points(img, &model_points, i);
+            let coordinates3 = find_3_valid_coordinates(&model_points);
+            if coordinates3.is_none() {
+                #[cfg(debug_assertions)]
+                {
+                    println!("找到的4个定位点不符合要求 {:?}",model_points);
+                    debug_rendering_failed_model_points(img, &model_points, i as u8);
+                }
+                continue;
             }
-            continue;
+            let coordinates3 = coordinates3.as_ref().unwrap();
+            model_points = predict_model_points_with_3_coordinate(coordinates3);
+            center_and_angle = calculate_rotate_angle_with_3_coordinates(coordinates3);
         }
-        rotate_img_and_model_points(img, &mut model_points);
-
+        
+        rotate_img_and_model_points(img, &mut model_points, &center_and_angle.center, center_and_angle.angle);
+        fix_model_points_coordinate(img, &mut model_points, CONFIG.image_baizheng.model_point_scan_range);
         return Some(model_points);
     }
     None
@@ -666,4 +699,17 @@ fn debug_rendering_failed_model_points(img: &ProcessedImages, model_points: &[Co
     }
     let path_model_point = format!("dev/test_data/debug_failed_model_points_{id}.jpg");
     let _ = rendering.save(path_model_point);
+}
+
+#[derive(Debug, Copy, Clone)]
+struct CenterAndAngle{
+    pub center: MyPoint,
+    pub angle: f32
+}
+
+impl CenterAndAngle {
+    // 构造函数，创建一个新的 CenterAngle 实例
+    pub fn new(center: MyPoint, angle: f32) -> Self {
+        Self { center, angle }
+    }
 }
