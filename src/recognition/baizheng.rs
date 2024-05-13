@@ -33,7 +33,7 @@ use crate::models::scan_json::Coordinate;
 use crate::my_utils::image::*;
 use crate::models::card::MyPoint;
 use crate::my_utils::math::cal_segment_angle;
-use crate::my_utils::math::points4_is_valid;
+use crate::my_utils::math::coordinates4_is_valid;
 use crate::my_utils::math::{cosine_similarity, euclidean_distance};
 use crate::config::CONFIG;
 
@@ -334,17 +334,18 @@ pub fn rotate_img_and_model_points(img: &mut ProcessedImages, mut coors: &mut [C
 
 
 fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &LocationInfo) -> Option<[Coordinate;4]>{
-    for args in CONFIG.image_process.retry_args.iter(){
+    for (i, args) in CONFIG.image_process.retry_args.iter().enumerate(){
         let img_mor: ImageBuffer<Luma<u8>, Vec<u8>> = generate_mophology_from_blur(&img.blur, args);
-        let model_points = generate_location(&img_mor, location_info);
-        if model_points.is_none(){continue};
-        let mut model_points = model_points.unwrap();
-        rotate_img_and_model_points(img, &mut model_points);
-
-        #[cfg(debug_assertions)]
-        {
-            debug_rendering_process_image(img, &model_points);
+        let mut model_points = generate_location(&img_mor, location_info);
+        if !coordinates4_is_valid(&model_points) {
+            #[cfg(debug_assertions)]
+            {
+                println!("找到的4个定位点不符合要求 {:?}",model_points);
+                debug_rendering_failed_model_points(img, &model_points, i);
+            }
+            continue;
         }
+        rotate_img_and_model_points(img, &mut model_points);
 
         return Some(model_points);
     }
@@ -353,7 +354,7 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &Locat
 
 /// 靠图片寻找定位点并进行小角度摆正
 /// 输出四个定位点并小角度摆正输入的图片
-fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &LocationInfo) -> Option<[Coordinate;4]>{
+fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &LocationInfo) -> [Coordinate;4]{
 
     // 查找图像中的轮廓
     let contours: Vec<Contour<i32>> = find_contours(img);
@@ -411,20 +412,8 @@ fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &Locat
             rd.h = h;
         }
     }
-    
-    if !points4_is_valid(
-        [
-            (lt.x,lt.y),
-            (rt.x,rt.y),
-            (ld.x,ld.y),
-            (rd.x,rd.y),
-        ]
-    ) {
-        println!("找到的4个定位点不符合要求 {:?}",[lt,rt,ld,rd]);
-        return None;
-    }
 
-    Some([lt,rt,ld,rd])
+    [lt,rt,ld,rd]
 }
 
 fn rotate_model_points(points: &mut [Coordinate;4], center: &MyPoint, angle_radian: f32){
@@ -669,19 +658,12 @@ pub fn fix_coordinate_use_assist_points(coordinate: &mut Coordinate, move_op: &O
     coordinate.y = new_point.1;
 }
 
-
-fn debug_rendering_process_image(img: &mut ProcessedImages, model_points: &[Coordinate;4]){
+fn debug_rendering_failed_model_points(img: &ProcessedImages, model_points: &[Coordinate;4], id: u8){
     let mut rendering = img.rgb.clone();
     for coor in model_points.iter(){
         draw_filled_circle_mut(&mut rendering,(coor.x,coor.y),3, Rgb([0,0,255]));
         draw_filled_circle_mut(&mut rendering,(coor.x + coor.w,coor.y+coor.h),3, Rgb([0,0,255]));
     }
-    let path_model_point = format!("dev/test_data/debug_model_points.jpg");
+    let path_model_point = format!("dev/test_data/debug_failed_model_points_{id}.jpg");
     let _ = rendering.save(path_model_point);
-
-    let path_morphology = format!("dev/test_data/debug_path_morphology.jpg");
-    let _ = img.morphology.save(path_morphology);
-
-    let path_gray = format!("dev/test_data/debug_path_gray.jpg");
-    let _ = img.blur.save(path_gray);
 }
