@@ -2,7 +2,7 @@
     排版标注信息结构，从scanjson洗出来的。
 */
 
-use serde::{Serialize, Deserialize, de::Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 
 #[derive(Debug, Serialize, Deserialize)]
