@@ -25,6 +25,7 @@ mod tests {
     use models::scan_json::{InputScan,InputImage};
     use recognition::engine::Engine;
 
+
     #[test]
     fn test_demo() -> Result<()> {
 
@@ -105,6 +106,15 @@ mod tests {
         };
 
         Ok(input_image)
+    }
+
+    #[test]
+    fn test_barcode() -> Result<()> {
+        let image = image::open("dev/test_data/barcode_image/220420.png")?;
+        let result = recognition::barcode::decode_barcode(image);
+        assert!(result.unwrap() == "220420");
+        return Result::Ok(());
+
     }
 }
 
