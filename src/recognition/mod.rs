@@ -6,4 +6,4 @@ mod black_fill;
 mod numbers;
 mod vx;
 pub mod engine;
-mod barcode;
+pub mod barcode;
