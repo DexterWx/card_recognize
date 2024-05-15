@@ -192,12 +192,3 @@ fn standard_deviation(data: &[f32]) -> Option<f32> {
         None
     }
 }
-
-fn leverage_ratios(data: &Vec<f32>) -> Vec<f32> {
-    let n = data.len() as f32;
-    let mean: f32 = data.iter().sum::<f32>() / n;
-
-    let sum_of_squares: f32 = data.iter().map(|&x| (x - mean).powi(2)).sum();
-
-    data.iter().map(|&x| ((x - mean).powi(2)) / sum_of_squares).collect()
-}
