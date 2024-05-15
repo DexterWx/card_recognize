@@ -210,7 +210,7 @@ pub fn process_image(model_size: &ModelSize, base64_image: &String) -> Processed
     // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
     let flag_need_90 = (model_size.h > model_size.w) != (img.height() > img.width());
     if flag_need_90{
-        img = img.rotate90();
+        img = img.rotate270();
     };
     
     let rgb_img = img.to_rgb8();

@@ -1,4 +1,4 @@
-use crate::{config::CONFIG, models::{card::MyPoint, scan_json::Coordinate}};
+use crate::{config::CONFIG, models::{card::MyPoint, engine_rec::LocationInfo, scan_json::Coordinate}};
 
 /// 余弦相似度
 pub fn cosine_similarity(vec1: &[f32], vec2: &[f32]) -> f32 {
@@ -25,11 +25,58 @@ pub fn euclidean_distance(point1: (f32, f32), point2: (f32, f32)) -> f32 {
     (dx.powi(2) + dy.powi(2)).sqrt()
 }
 
-pub fn coordinates4_is_valid(coors: &[Coordinate; 4]) -> bool{
+pub fn coordinates4_is_valid(coors: &[Coordinate; 4], location_info: &LocationInfo) -> bool{
+    // 四点是否距离等差
     let diff_x = ((coors[2].x - coors[0].x) - (coors[3].x - coors[1].x)).abs();
     let diff_y = ((coors[2].y - coors[0].y) - (coors[3].y - coors[1].y)).abs();
-    if diff_x > CONFIG.image_baizheng.model_point_diff{return false;}
-    if diff_y > CONFIG.image_baizheng.model_point_diff{return false;}
+    if diff_x > CONFIG.image_baizheng.model_point_diff || diff_y > CONFIG.image_baizheng.model_point_diff{
+        #[cfg(debug_assertions)]
+        {
+            println!("定位点距离差异常: diff_x {diff_x:?} diff_y {diff_y:?}");
+        }
+        return false;
+    }
+
+    // 四个角是否都接近90度
+    let valid_indexs = vec![
+        (2,0,1),
+        (0,1,3),
+        (3,2,0),
+        (1,3,2),
+    ];
+    for index in valid_indexs.iter(){
+        let coor3 = [&coors[index.0],&coors[index.1],&coors[index.2]];
+        let angle = calculate_coordinates_angle(&coor3);
+        let angle_diff = (angle - 90f32).abs();
+        if angle_diff >= CONFIG.image_baizheng.model_points_3_angle_threshold {
+            #[cfg(debug_assertions)]
+            {
+                println!("定位点中存在角度不是90的: {:?}_{:?}",index, angle);
+            }
+            return false;
+        }
+    }
+    
+    // 四个框的wh和标注的wh的余弦相似度是否有离群点
+    let mut cos_vec = Vec::new();
+    for coor in coors.iter(){
+        let cos = cosine_similarity(&vec![coor.w as f32,coor.h as f32], &vec![location_info.wh.0 as f32, location_info.wh.1 as f32]);
+        cos_vec.push(cos);
+    }
+    let cos_mean = mean(&cos_vec).unwrap();
+    let cos_std = standard_deviation(&cos_vec).unwrap();
+    for cos in cos_vec.iter(){
+        if *cos > 0.997 {continue}
+        if *cos < cos_mean - 1.5*cos_std {
+            #[cfg(debug_assertions)]
+            {
+                println!("定位点中存在离群点: {:?}",cos_vec);
+            }
+            return false
+        }
+    }
+    //let cos = cosine_similarity(&vec![w as f32,h as f32], &vec![location_info.wh.0 as f32, location_info.wh.1 as f32]);
+    
     true
 }
 
@@ -123,4 +170,34 @@ pub fn cal_segment_angle(p1: MyPoint, p2: MyPoint, q1: MyPoint, q2: MyPoint) -> 
     let angle_rad = cross_product.atan2(dot_product);
 
     angle_rad
+}
+
+// 计算向量的均值
+fn mean(data: &[f32]) -> Option<f32> {
+    let sum: f32 = data.iter().sum();
+    let count = data.len() as f32;
+    if count > 0.0 {
+        Some(sum / count)
+    } else {
+        None
+    }
+}
+
+// 计算向量的标准差
+fn standard_deviation(data: &[f32]) -> Option<f32> {
+    if let Some(mean) = mean(data) {
+        let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / (data.len() as f32);
+        Some(variance.sqrt())
+    } else {
+        None
+    }
+}
+
+fn leverage_ratios(data: &Vec<f32>) -> Vec<f32> {
+    let n = data.len() as f32;
+    let mean: f32 = data.iter().sum::<f32>() / n;
+
+    let sum_of_squares: f32 = data.iter().map(|&x| (x - mean).powi(2)).sum();
+
+    data.iter().map(|&x| ((x - mean).powi(2)) / sum_of_squares).collect()
 }
