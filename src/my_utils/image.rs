@@ -1,5 +1,6 @@
 use std::io::Cursor;
 
+use anyhow::{Result, Ok};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
 use imageproc::contrast::threshold;
 use imageproc::distance_transform::Norm;
@@ -195,18 +196,17 @@ pub fn generate_real_coordinate_with_model_points(reference_model_points: &Refer
     
 }
 
-pub fn trans_base64_to_image(base64_image: &String) -> DynamicImage {
+pub fn trans_base64_to_image(base64_image: &String) -> Result<DynamicImage> {
     let base64_data = from_base64(base64_image.clone());
     // 将解码后的数据加载为图像
-    let image = image::load_from_memory(&base64_data)
-        .expect("Failed to load image from memory");
-    image
+    let image = image::load_from_memory(&base64_data)?;
+    Ok(image)
 }
 
 /// 处理图片，返回图片预处理过程每一步中间图
 /// 并根据长宽比例完成图片的90度翻转
-pub fn process_image(model_size: &ModelSize, base64_image: &String) -> ProcessedImages {
-    let mut img = trans_base64_to_image(base64_image);
+pub fn process_image(model_size: &ModelSize, base64_image: &String) -> Result<ProcessedImages> {
+    let mut img = trans_base64_to_image(base64_image)?;
     // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
     let flag_need_90 = (model_size.h > model_size.w) != (img.height() > img.width());
     if flag_need_90{
@@ -227,14 +227,14 @@ pub fn process_image(model_size: &ModelSize, base64_image: &String) -> Processed
     let integral_gray:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&blurred_img_bi);
     let integral_morphology:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&mor_img);
 
-    ProcessedImages{
+    Ok(ProcessedImages{
         org: Some(base64_image.clone()),
         rgb: rgb_img,
         blur: blurred_img,
         morphology: mor_img,
         integral_gray: integral_gray,
         integral_morphology: integral_morphology,
-    }
+    })
 }
 
 pub fn generate_mophology_from_blur(blurred_img: &ImageBuffer<Luma<u8>, Vec<u8>>, image_process_args: &ProcessedImagesArgs) -> ImageBuffer<Luma<u8>, Vec<u8>>{
