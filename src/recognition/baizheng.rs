@@ -376,13 +376,13 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &Locat
         if !coordinates4_is_valid(&model_points,location_info) {
             continue
         }
+        rotate_img_and_model_points(img, &mut model_points, &center_and_angle.center, center_and_angle.angle);
+        fix_model_points_coordinate(img, &mut model_points, CONFIG.image_baizheng.model_point_scan_range);
         #[cfg(debug_assertions)]
         {
             println!("四个定位点 {:?}",model_points);
             debug_rendering_failed_model_points(img, &model_points, i as u8);
         }
-        rotate_img_and_model_points(img, &mut model_points, &center_and_angle.center, center_and_angle.angle);
-        fix_model_points_coordinate(img, &mut model_points, CONFIG.image_baizheng.model_point_scan_range);
         return Some(model_points);
     }
     //第二次只需要找到三个定位点即可
@@ -410,7 +410,6 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &Locat
             println!("生成第四个定位点 {:?}",model_points);
             debug_rendering_failed_model_points(img, &model_points, i as u8);
         }
-        fix_model_points_coordinate(img, &mut model_points, CONFIG.image_baizheng.model_point_scan_range);
         return Some(model_points);
     }
     None
@@ -465,30 +464,59 @@ fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &Locat
         let x = lt_box.x;
         let y = lt_box.y;
 
-        if y<lt.y && x<lt_x_must_less{
-            lt.x = x;
-            lt.y = y;
-            lt.w = w;
-            lt.h = h;
+        if location_info.is_in_seal {
+            if y<lt.y && x<lt_x_must_less{
+                lt.x = x;
+                lt.y = y;
+                lt.w = w;
+                lt.h = h;
+            }
+    
+            if x-y>rt.x-rt.y {
+                rt.x = x;
+                rt.y = y;
+                rt.w = w;
+                rt.h = h;
+            }
+            if x-y<ld.x-ld.y {
+                ld.x = x;
+                ld.y = y;
+                ld.w = w;
+                ld.h = h;
+            }
+            if y>rd.y && x>rd_x_must_more {
+                rd.x = x;
+                rd.y = y;
+                rd.w = w;
+                rd.h = h;
+            }
         }
-
-        if x-y>rt.x-rt.y {
-            rt.x = x;
-            rt.y = y;
-            rt.w = w;
-            rt.h = h;
-        }
-        if x-y<ld.x-ld.y {
-            ld.x = x;
-            ld.y = y;
-            ld.w = w;
-            ld.h = h;
-        }
-        if y>rd.y && x>rd_x_must_more {
-            rd.x = x;
-            rd.y = y;
-            rd.w = w;
-            rd.h = h;
+        else {
+            if x+y<lt.x+lt.y{
+                lt.x = x;
+                lt.y = y;
+                lt.w = w;
+                lt.h = h;
+            }
+    
+            if x-y>rt.x-rt.y {
+                rt.x = x;
+                rt.y = y;
+                rt.w = w;
+                rt.h = h;
+            }
+            if x-y<ld.x-ld.y {
+                ld.x = x;
+                ld.y = y;
+                ld.w = w;
+                ld.h = h;
+            }
+            if x+y>rd.x+rd.y {
+                rd.x = x;
+                rd.y = y;
+                rd.w = w;
+                rd.h = h;
+            }
         }
 
     }

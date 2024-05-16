@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{config::CONFIG, models::{card::MyPoint, engine_rec::LocationInfo, scan_json::Coordinate}};
 
 /// 余弦相似度
@@ -26,6 +28,14 @@ pub fn euclidean_distance(point1: (f32, f32), point2: (f32, f32)) -> f32 {
 }
 
 pub fn coordinates4_is_valid(coors: &[Coordinate; 4], location_info: &LocationInfo) -> bool{
+    // 查看是否存在相同坐標
+    let mut seen = HashSet::new();
+    for &coor in coors.iter() {
+        if !seen.insert(coor) {
+            return false; // 如果插入失败，说明已经存在相同的坐标，返回 false
+        }
+    }
+    
     // 四点是否距离等差
     let diff_x = ((coors[2].x - coors[0].x) - (coors[3].x - coors[1].x)).abs();
     let diff_y = ((coors[2].y - coors[0].y) - (coors[3].y - coors[1].y)).abs();
@@ -66,7 +76,7 @@ pub fn coordinates4_is_valid(coors: &[Coordinate; 4], location_info: &LocationIn
     let cos_mean = mean(&cos_vec).unwrap();
     let cos_std = standard_deviation(&cos_vec).unwrap();
     for cos in cos_vec.iter(){
-        if *cos > 0.997 {continue}
+        if *cos > 0.996 {continue}
         if *cos < cos_mean - 1.5*cos_std {
             #[cfg(debug_assertions)]
             {
@@ -75,7 +85,6 @@ pub fn coordinates4_is_valid(coors: &[Coordinate; 4], location_info: &LocationIn
             return false
         }
     }
-    //let cos = cosine_similarity(&vec![w as f32,h as f32], &vec![location_info.wh.0 as f32, location_info.wh.1 as f32]);
     
     true
 }
