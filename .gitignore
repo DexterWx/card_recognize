@@ -1,5 +1,5 @@
 /target
-/log.txt
+/log*.txt
 /*.jpg
 /*.png
 /dev/test_data/*.jpg

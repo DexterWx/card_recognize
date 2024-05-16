@@ -43,7 +43,9 @@ pub struct ImageBaizheng {
     pub assist_point_max_distance: i32,
     pub model_point_min_distance: i32,
     pub model_point_max_distance: i32,
-    pub assist_point_nearby_length: i32
+    pub assist_point_nearby_length: i32,
+    pub valid_coordinates4_cosine_similarity: f32,
+    pub valid_coordinates_wh_sum_mean_dis: f32
 }
 
 /// 判断填涂比参数
@@ -100,12 +102,12 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
     };
     
     let image_baizheng = ImageBaizheng {
-        page_number_diff: 0.21,
+        page_number_diff: 0.23,
         model_point_wh_cosine_similarity: 0.985,
-        model_points_3_angle_threshold: 1.0,
+        model_points_3_angle_threshold: 1.046,
         model_point_min_wh: 10,
         model_point_max_wh: 70,
-        model_point_diff: 40,
+        model_point_diff: 45,
         model_point_scan_range: 6,
         assist_point_scan_range: 8,
         assist_point_min_distance: 6,
@@ -113,6 +115,8 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
         model_point_min_distance: 6,
         model_point_max_distance: 60,
         assist_point_nearby_length: 4,
+        valid_coordinates4_cosine_similarity: 0.996,
+        valid_coordinates_wh_sum_mean_dis: 8.0
     };
     
     let image_blackfill = ImageBlackFill {

@@ -57,6 +57,11 @@ impl Baizheng for Engine {
         let mut imgs: Vec<ProcessedImages> = Vec::new();
         for base64_image in &input_images.images{
             let img = process_image(&self.get_scan_data().pages[0].model_size, base64_image);
+            if img.is_err(){
+                println!("图片格式错误");
+                continue;
+            }
+            let img = img.unwrap();
             let mean_pixel = sum_image_pixels(
                 &img.integral_gray, 0, 0, img.morphology.width()-1, img.morphology.height()-1
             )[0]/((img.morphology.width() * img.morphology.height()) as i64);
@@ -117,7 +122,7 @@ impl Baizheng for Engine {
                     page_number_points: &page.page_number_points,
                     model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
                 };
-                let diff = match_page_and_img(&match_info, &img_and_model_points);
+                let diff = calculate_page_and_img_diff(&match_info, &img_and_model_points);
 
                 if diff <= CONFIG.image_baizheng.page_number_diff{
                     let img_and_model_points = img_and_model_points.clone();
@@ -161,7 +166,7 @@ impl Baizheng for Engine {
                     page_number_points: &page.page_number_points,
                     model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
                 };
-                let diff = match_page_and_img(&match_info, &img_and_model_points);
+                let diff = calculate_page_and_img_diff(&match_info, &img_and_model_points);
                 if diff <= CONFIG.image_baizheng.page_number_diff{
                     let img_and_model_points = img_and_model_points.clone();
                     processed_images_res[index_scan] = Some(img_and_model_points.clone());
@@ -181,31 +186,40 @@ impl Baizheng for Engine {
         }
 
         // 精细修复定位点轮廓
-        for processed_image_and_points in processed_images_res.iter_mut() {
-            if matches!(processed_image_and_points,None){continue;}
-            let processed_image_and_points = processed_image_and_points.as_mut().unwrap();
-            let img = &mut processed_image_and_points.img;
-            let coors = &mut processed_image_and_points.real_model_points;
+        for (image_and_points,page) in processed_images_res.iter_mut().zip(self.get_scan_data().pages.iter()) {
+            if image_and_points.is_none() {continue;}
+            let image_and_points = image_and_points.as_mut().unwrap();
+            let mut _image_and_points = image_and_points.clone();
+            let img = &mut _image_and_points.img;
+            let coors = &mut _image_and_points.real_model_points;
+            let center_and_angle = calculate_rotate_angle_with_2_coordinates(&[coors[0],coors[1]]);
+            fix_model_points_coordinate(img, coors, CONFIG.image_baizheng.model_point_scan_range);
+            rotate_img_and_model_points(img, coors, &center_and_angle.center, center_and_angle.angle);
+            
+            let match_info = RecInfoBaizheng{
+                model_size: &page.model_size,
+                page_number_points: &page.page_number_points,
+                model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
+            };
+            let old_diff = calculate_page_and_img_diff(&match_info, &image_and_points);
+            let new_diff = calculate_page_and_img_diff(&match_info, &_image_and_points);
+            if old_diff < new_diff {
+                #[cfg(debug_assertions)]
+                {
+                    println!("定位点不需要修复: old_diff {old_diff:?} new_diff {new_diff:?}");
+                }
+                continue
+            }
+            #[cfg(debug_assertions)]
+            {
+                println!("修复定位点: old_diff {old_diff:?} new_diff {new_diff:?}");
+            }
+            let img = &mut image_and_points.img;
+            let coors = &mut image_and_points.real_model_points;
             let center_and_angle = calculate_rotate_angle_with_2_coordinates(&[coors[0],coors[1]]);
             fix_model_points_coordinate(img, coors, CONFIG.image_baizheng.model_point_scan_range);
             rotate_img_and_model_points(img, coors, &center_and_angle.center, center_and_angle.angle);
         }
-
-        // 查看精细修复后的匹配率
-        #[cfg(debug_assertions)]
-        {
-            for (index_scan,page) in self.get_scan_data().pages.iter().enumerate(){
-                if matches!(processed_images_res[index_scan],None){continue;}
-                let img_and_model_points = processed_images_res[index_scan].as_ref().unwrap();
-                let match_info = RecInfoBaizheng{
-                    model_size: &page.model_size,
-                    page_number_points: &page.page_number_points,
-                    model_points: page.model_points_4.as_ref().expect("model_points_4 is None")
-                };
-                let _ = match_page_and_img(&match_info, img_and_model_points);
-            }
-        }
-
 
         processed_images_res
     }
@@ -214,6 +228,8 @@ impl Baizheng for Engine {
         for (_index,(img_and_model_points, page)) in imgs_and_model_points.iter().zip(output.pages.iter_mut()).enumerate(){
             if matches!(img_and_model_points, None){continue;}
             let rendering = trans_base64_to_image(&page.image_rotated.as_ref().expect("image_rendering is None"));
+            if rendering.is_err(){continue}
+            let rendering = rendering.unwrap();
             let mut rendering = rendering.to_rgb8();
             for point in img_and_model_points.as_ref().unwrap().real_model_points.iter(){
                 draw_filled_circle_mut(&mut rendering,(point.x,point.y),3, Rgb([0,0,255]));
@@ -230,6 +246,8 @@ impl Baizheng for Engine {
             if matches!(page.assist_points, None) {continue;}
             if matches!(page_out.image_rendering, None){continue;}
             let rendering = trans_base64_to_image(&page_out.image_rendering.as_ref().expect("image_rendering is None"));
+            if rendering.is_err(){continue}
+            let rendering = rendering.unwrap();
             let mut rendering = rendering.to_rgb8();
             let img_and_model_points = img_and_model_points.as_ref().expect("img_and_model_points is None");
 
@@ -357,19 +375,39 @@ fn calculate_rotate_angle_with_3_coordinates(coors: &[Coordinate;3]) -> CenterAn
     calculate_rotate_angle_with_2_coordinates(&[center.clone(), other.clone()])
 }
 
-
+///生成定位点并微调图片
 fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &LocationInfo) -> Option<[Coordinate;4]>{
+    //第一次尝试找到全部四个定位点
+    for (i, args) in CONFIG.image_process.retry_args.iter().enumerate(){
+        let img_mor: ImageBuffer<Luma<u8>, Vec<u8>> = generate_mophology_from_blur(&img.blur, args);
+        let mut model_points = generate_location(&img_mor, location_info);
+        let center_and_angle = calculate_rotate_angle_with_2_coordinates(&[model_points[0],model_points[1]]);
+        if !coordinates4_is_valid(&model_points,location_info) {
+            let path_model_point = format!("dev/test_data/debug_failed_model_points4_{i}.jpg");
+            debug_rendering_failed_model_points(img, &model_points, &path_model_point);
+            continue
+        }
+        rotate_img_and_model_points(img, &mut model_points, &center_and_angle.center, center_and_angle.angle);
+        // fix_model_points_coordinate(img, &mut model_points, CONFIG.image_baizheng.model_point_scan_range);
+        #[cfg(debug_assertions)]
+        {
+            println!("四个定位点 {:?}",model_points);
+        }
+        return Some(model_points);
+    }
+    //第二次只需要找到三个定位点即可
     for (i, args) in CONFIG.image_process.retry_args.iter().enumerate(){
         let img_mor: ImageBuffer<Luma<u8>, Vec<u8>> = generate_mophology_from_blur(&img.blur, args);
         let mut model_points = generate_location(&img_mor, location_info);
         let mut center_and_angle = calculate_rotate_angle_with_2_coordinates(&[model_points[0],model_points[1]]);
-        if !coordinates4_is_valid(&model_points) {
-            let coordinates3 = find_3_valid_coordinates(&model_points);
+        if !coordinates4_is_valid(&model_points,location_info) {
+            let coordinates3 = find_3_valid_coordinates(&model_points,location_info);
             if coordinates3.is_none() {
                 #[cfg(debug_assertions)]
                 {
-                    println!("找到的4个定位点不符合要求 {:?}",model_points);
-                    debug_rendering_failed_model_points(img, &model_points, i as u8);
+                    println!("找不到的3个符合要求的定位点 {:?}",model_points);
+                    let path_model_point = format!("dev/test_data/debug_failed_model_points3_{i}.jpg");
+                    debug_rendering_failed_model_points(img, &model_points, &path_model_point);
                 }
                 continue;
             }
@@ -377,9 +415,14 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &Locat
             model_points = predict_model_points_with_3_coordinate(coordinates3);
             center_and_angle = calculate_rotate_angle_with_3_coordinates(coordinates3);
         }
-        
         rotate_img_and_model_points(img, &mut model_points, &center_and_angle.center, center_and_angle.angle);
-        fix_model_points_coordinate(img, &mut model_points, CONFIG.image_baizheng.model_point_scan_range);
+        // fix_model_points_coordinate(img, &mut model_points, CONFIG.image_baizheng.model_point_scan_range);
+        #[cfg(debug_assertions)]
+        {
+            println!("生成第四个定位点 {:?}",model_points);
+            let path_model_point = format!("dev/test_data/debug_generate_model_points.jpg");
+            debug_rendering_failed_model_points(img, &model_points, &path_model_point);
+        }
         return Some(model_points);
     }
     None
@@ -388,6 +431,16 @@ fn generate_location_and_rotate(img: &mut ProcessedImages, location_info: &Locat
 /// 靠图片寻找定位点并进行小角度摆正
 /// 输出四个定位点并小角度摆正输入的图片
 fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &LocationInfo) -> [Coordinate;4]{
+
+    let w = img.width();
+    let h = img.height();
+    let lt_x_must_less = ((w as f32) / (5 as f32)) as i32;
+    let rd_x_must_more = ((w as f32) / (5 as f32) * 4.0) as i32;
+
+    let x_less = ((w as f32) / (4 as f32)) as i32;
+    let x_more = ((w as f32) / (4 as f32) * 3.0) as i32;
+    let y_less = ((h as f32) / (4 as f32)) as i32;
+    let y_more = ((h as f32) / (4 as f32) * 3.0) as i32;
 
     // 查找图像中的轮廓
     let contours: Vec<Contour<i32>> = find_contours(img);
@@ -411,6 +464,10 @@ fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &Locat
             continue;
         }
 
+        // 位置不在四个角落
+        if x_less < lt_box.x && lt_box.x < x_more {continue;}
+        if y_less < lt_box.y && lt_box.y < y_more {continue;}
+
         // 过滤影响定位点选择的框框，余弦相似度如果不够大说明不是定位点。
         let cos = cosine_similarity(&vec![w as f32,h as f32], &vec![location_info.wh.0 as f32, location_info.wh.1 as f32]);
         if CONFIG.image_baizheng.model_point_wh_cosine_similarity > cos{
@@ -420,30 +477,61 @@ fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &Locat
         let x = lt_box.x;
         let y = lt_box.y;
 
-        if x+y<lt.x+lt.y{
-            lt.x = x;
-            lt.y = y;
-            lt.w = w;
-            lt.h = h;
+        if location_info.is_in_seal {
+            if y<lt.y && x<lt_x_must_less{
+                lt.x = x;
+                lt.y = y;
+                lt.w = w;
+                lt.h = h;
+            }
+    
+            if x-y>rt.x-rt.y {
+                rt.x = x;
+                rt.y = y;
+                rt.w = w;
+                rt.h = h;
+            }
+            if x-y<ld.x-ld.y {
+                ld.x = x;
+                ld.y = y;
+                ld.w = w;
+                ld.h = h;
+            }
+            if y>rd.y && x>rd_x_must_more {
+                rd.x = x;
+                rd.y = y;
+                rd.w = w;
+                rd.h = h;
+            }
         }
-        if x-y>rt.x-rt.y {
-            rt.x = x;
-            rt.y = y;
-            rt.w = w;
-            rt.h = h;
+        else {
+            if x+y<lt.x+lt.y{
+                lt.x = x;
+                lt.y = y;
+                lt.w = w;
+                lt.h = h;
+            }
+    
+            if x-y>rt.x-rt.y {
+                rt.x = x;
+                rt.y = y;
+                rt.w = w;
+                rt.h = h;
+            }
+            if x-y<ld.x-ld.y {
+                ld.x = x;
+                ld.y = y;
+                ld.w = w;
+                ld.h = h;
+            }
+            if x+y>rd.x+rd.y {
+                rd.x = x;
+                rd.y = y;
+                rd.w = w;
+                rd.h = h;
+            }
         }
-        if x-y<ld.x-ld.y {
-            ld.x = x;
-            ld.y = y;
-            ld.w = w;
-            ld.h = h;
-        }
-        if x+y>rd.x+rd.y {
-            rd.x = x;
-            rd.y = y;
-            rd.w = w;
-            rd.h = h;
-        }
+
     }
 
     [lt,rt,ld,rd]
@@ -555,7 +643,7 @@ fn fix_coordinate_by_search_nearby(img: &ProcessedImages, coordinate: &mut Coord
 /// 输入的图片已经是经过小角度摆正+90度摆正的图片
 /// 该函数根据页面点的向量距离对page和image进行匹配
 /// 匹配成功的img直接进行180大角度摆正
-fn match_page_and_img(
+fn calculate_page_and_img_diff(
     baizheng_info: &RecInfoBaizheng, img_and_model_points: &ProcessedImagesAndModelPoints
 ) -> f32 {
 
@@ -568,11 +656,9 @@ fn match_page_and_img(
         },
         &img_and_model_points.img.integral_morphology
     );
-
-    // 距离足够小说明匹配成功
     #[cfg(debug_assertions)]
     {
-        println!("{diff}");
+        println!("{diff:?}");
     }
     return diff;
 }
@@ -691,14 +777,13 @@ pub fn fix_coordinate_use_assist_points(coordinate: &mut Coordinate, move_op: &O
     coordinate.y = new_point.1;
 }
 
-fn debug_rendering_failed_model_points(img: &ProcessedImages, model_points: &[Coordinate;4], id: u8){
+fn debug_rendering_failed_model_points(img: &ProcessedImages, model_points: &[Coordinate;4], path: &String){
     let mut rendering = img.rgb.clone();
     for coor in model_points.iter(){
         draw_filled_circle_mut(&mut rendering,(coor.x,coor.y),3, Rgb([0,0,255]));
         draw_filled_circle_mut(&mut rendering,(coor.x + coor.w,coor.y+coor.h),3, Rgb([0,0,255]));
     }
-    let path_model_point = format!("dev/test_data/debug_failed_model_points_{id}.jpg");
-    let _ = rendering.save(path_model_point);
+    let _ = rendering.save(path);
 }
 
 #[derive(Debug, Copy, Clone)]

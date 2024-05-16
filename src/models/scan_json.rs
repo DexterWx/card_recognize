@@ -71,7 +71,7 @@ impl<'de> Deserialize<'de> for Number {
     }
 }
 
-#[derive(Debug, Serialize, Clone, Copy)]
+#[derive(Debug, Serialize, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Coordinate {
     pub x: i32,
     pub y: i32,

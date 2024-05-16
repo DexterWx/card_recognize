@@ -51,7 +51,7 @@ mod tests {
         for (index,page) in output.pages.iter().enumerate(){
             if matches!(page.image_rendering, None){continue;}
             let img = page.image_rendering.as_ref().unwrap();
-            let img = trans_base64_to_image(img);
+            let img = trans_base64_to_image(img)?;
             let path = format!("dev/test_data/output_rendering_{index}.jpg");
             let _ = img.to_rgb8().save(path);
         }
