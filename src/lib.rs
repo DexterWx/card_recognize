@@ -25,6 +25,7 @@ mod tests {
     use models::scan_json::{InputScan,InputImage};
     use recognition::engine::Engine;
 
+
     #[test]
     fn test_demo() -> Result<()> {
 
@@ -50,7 +51,7 @@ mod tests {
         for (index,page) in output.pages.iter().enumerate(){
             if matches!(page.image_rendering, None){continue;}
             let img = page.image_rendering.as_ref().unwrap();
-            let img = trans_base64_to_image(img);
+            let img = trans_base64_to_image(img)?;
             let path = format!("dev/test_data/output_rendering_{index}.jpg");
             let _ = img.to_rgb8().save(path);
         }
@@ -105,6 +106,15 @@ mod tests {
         };
 
         Ok(input_image)
+    }
+
+    #[test]
+    fn test_barcode() -> Result<()> {
+        let image = image::open("dev/test_data/barcode_image/220420.png")?;
+        let result = recognition::barcode::decode_barcode(image);
+        assert!(result.unwrap() == "220420");
+        return Result::Ok(());
+
     }
 }
 

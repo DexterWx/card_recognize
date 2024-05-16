@@ -37,6 +37,8 @@ impl RecBlackFill for Engine {
     for (_page_index, page) in output.pages.iter_mut().enumerate() {  
       if matches!(page.image_rendering, None){continue;}
       let rendering = trans_base64_to_image(&page.image_rendering.as_ref().expect("image_rendering is None"));
+      if rendering.is_err(){continue}
+        let rendering = rendering.unwrap();
       let mut rendering = rendering.to_rgb8();
       for recognize in &page.recognizes {
         if recognize.rec_type == CONFIG.recognize_type.black_fill {
