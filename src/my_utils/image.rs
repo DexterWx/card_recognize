@@ -274,8 +274,8 @@ pub fn calculate_page_number_difference(
             integral_img,
             coordinate.x as u32,
             coordinate.y as u32,
-            coordinate.x as u32 + coordinate.w as u32,
-            coordinate.y as u32 + coordinate.h as u32
+            coordinate.x as u32 + coordinate.w as u32 - 1u32,
+            coordinate.y as u32 + coordinate.h as u32 - 1u32
         )[0];
         let mean_pixel = sum_pixel / (coordinate.w * coordinate.h) as i64;
         let rate_pixel = 1.0 - mean_pixel as f32 / 255f32;
