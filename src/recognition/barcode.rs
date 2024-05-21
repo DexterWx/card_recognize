@@ -47,12 +47,12 @@ pub fn decode_barcode(img: DynamicImage) -> std::option::Option<String> {
 
 pub trait RecBarcode{
     /// 条形码识别
-    fn rec_barcode(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
-    fn rendering_barcode(&self, output: &mut OutputRec);
+    fn rec_barcode(img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
+    fn rendering_barcode(output: &mut OutputRec);
 }
 
 impl RecBarcode for Engine {
-    fn rec_barcode(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value> {
+    fn rec_barcode(img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value> {
         let crop: image::ImageBuffer<image::Rgb<u8>, Vec<u8>> = crop_image(&img.rgb, coordinate);
         match decode_barcode(DynamicImage::ImageRgb8(crop)) {
             Some(p) => Some(Value::String(p)),
@@ -60,7 +60,7 @@ impl RecBarcode for Engine {
         }
     }
 
-    fn rendering_barcode(&self, _output: &mut OutputRec) {
+    fn rendering_barcode(_output: &mut OutputRec) {
         
     }
 }

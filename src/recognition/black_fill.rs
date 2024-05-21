@@ -8,12 +8,12 @@ use imageproc::integral_image::sum_image_pixels;
 use imageproc::drawing::draw_filled_rect_mut;
 pub trait RecBlackFill{
   /// 填涂识别
-  fn rec_black_fill(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
-  fn rendering_black_fill(&self, output: &mut OutputRec);
+  fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
+  fn rendering_black_fill(output: &mut OutputRec);
 }
 
 impl RecBlackFill for Engine {
-  fn rec_black_fill(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>{
+  fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>{
       
     let rect = Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32);
     let integral_image ;
@@ -33,7 +33,7 @@ impl RecBlackFill for Engine {
     return Some(Value::Float(neighborhood_radio));
   }
 
-  fn rendering_black_fill(&self, output: &mut OutputRec) {
+  fn rendering_black_fill(output: &mut OutputRec) {
     for (_page_index, page) in output.pages.iter_mut().enumerate() {  
       if matches!(page.image_rendering, None){continue;}
       let rendering = trans_base64_to_image(&page.image_rendering.as_ref().expect("image_rendering is None"));
