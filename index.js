@@ -310,7 +310,8 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { initialize, inference } = nativeBinding
+const { initialize, inference, inferenceSecond } = nativeBinding
 
 module.exports.initialize = initialize
 module.exports.inference = inference
+module.exports.inferenceSecond = inferenceSecond

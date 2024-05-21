@@ -201,3 +201,16 @@ impl Page {
         }
     }
 }
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InputSecond {
+    pub task_id: String,
+    pub pages: Vec<PageSecond>,
+    pub images: Vec<String>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PageSecond {
+    pub recognizes: Vec<Recognition>
+}

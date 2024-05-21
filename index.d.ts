@@ -5,3 +5,4 @@
 
 export function initialize(inputJson: string): void
 export function inference(inputJson: string): string
+export function inferenceSecond(inputJson: string): string

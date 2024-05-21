@@ -56,7 +56,7 @@ impl Baizheng for Engine {
         // 读图+处理成ProcessedImages，包含各种预处理的图片
         let mut imgs: Vec<ProcessedImages> = Vec::new();
         for base64_image in &input_images.images{
-            let img = process_image(&self.get_scan_data().pages[0].model_size, base64_image);
+            let img = process_image(Some(&self.get_scan_data().pages[0].model_size), base64_image);
             if img.is_err(){
                 println!("图片格式错误");
                 continue;

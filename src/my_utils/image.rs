@@ -205,13 +205,16 @@ pub fn trans_base64_to_image(base64_image: &String) -> Result<DynamicImage> {
 
 /// 处理图片，返回图片预处理过程每一步中间图
 /// 并根据长宽比例完成图片的90度翻转
-pub fn process_image(model_size: &ModelSize, base64_image: &String) -> Result<ProcessedImages> {
+pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> Result<ProcessedImages> {
     let mut img = trans_base64_to_image(base64_image)?;
     // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
-    let flag_need_90 = (model_size.h > model_size.w) != (img.height() > img.width());
-    if flag_need_90{
-        img = img.rotate270();
-    };
+    if !model_size.is_none() {
+        let model_size = model_size.unwrap();
+        let flag_need_90 = (model_size.h > model_size.w) != (img.height() > img.width());
+        if flag_need_90{
+            img = img.rotate270();
+        };
+    }
     
     let rgb_img = img.to_rgb8();
     let gray_img = img.to_luma8();
