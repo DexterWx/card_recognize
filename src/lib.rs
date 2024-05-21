@@ -187,7 +187,7 @@ pub mod build{
     }
 
     #[napi]
-    pub fn inferenceSecond(input_json:String) -> String {
+    pub fn inference_second(input_json:String) -> String {
         let input: InputSecond = serde_json::from_str(&input_json).expect("Parse Input Failed");
         let result = Engine::recognize_second(&input);
         // 使用 serde_json 将结果序列化为 JSON 字符串
