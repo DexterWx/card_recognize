@@ -47,6 +47,7 @@ pub trait Baizheng{
     fn set_assist_points(&self, imgs_and_model_points: &Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
     fn rendering_model_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
     fn rendering_assist_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
+    fn rendering_page_number(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec);
 }
 
 
@@ -332,6 +333,35 @@ impl Baizheng for Engine {
             out_page.assist_points = Some(fix_assist_points);
         }
     }
+
+    fn rendering_page_number(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
+        for (page,(img_and_model_points,page_out)) in self.get_scan_data().pages.iter().zip(imgs_and_model_points.iter().zip(output.pages.iter_mut())){
+            if matches!(img_and_model_points,None) {continue;}
+            if matches!(page.assist_points, None) {continue;}
+            if matches!(page_out.image_rendering, None){continue;}
+            let rendering = trans_base64_to_image(&page_out.image_rendering.as_ref().expect("image_rendering is None"));
+            if rendering.is_err(){continue}
+            let rendering = rendering.unwrap();
+            let mut rendering = rendering.to_rgb8();
+            let img_and_model_points = img_and_model_points.as_ref().expect("img_and_model_points is None");
+
+            let reference_model_points = ReferenceModelPoints{
+                model_points: &page.model_points_4.expect("model_points_4 is None"),
+                real_model_points: &img_and_model_points.real_model_points
+            };
+            let page_number_points = &page.page_number_points;
+            for point in page_number_points.iter(){
+                let coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.coordinate);
+                draw_filled_rect_mut(
+                    &mut rendering,
+                    Rect::at(coor.x, coor.y).of_size(coor.w as u32, coor.h as u32),
+                    Rgb([255u8, 0u8, 0u8]),
+                );
+            }
+            let img_base64 = image_to_base64(&rendering);
+            page_out.image_rendering = Some(img_base64);
+        }
+    }
 }
 
 
@@ -446,10 +476,10 @@ fn generate_location(img: &ImageBuffer<Luma<u8>, Vec<u8>>, location_info: &Locat
     let contours: Vec<Contour<i32>> = find_contours(img);
 
     // 寻找四个定位点 x+y足够小、x-y足够大、x-y足够小、x+y足够大
-    let mut lt = Coordinate{x:111111,y:111111,w:0,h:0};
-    let mut rt = Coordinate{x:-111111,y:111111,w:0,h:0};
-    let mut ld = Coordinate{x:111111,y:-111111,w:0,h:0};
-    let mut rd = Coordinate{x:-111111,y:-111111,w:0,h:0};
+    let mut lt = Coordinate{x:12345,y:54321,w:0,h:0};
+    let mut rt = Coordinate{x:-11111,y:11111,w:0,h:0};
+    let mut ld = Coordinate{x:11111,y:-11111,w:0,h:0};
+    let mut rd = Coordinate{x:-23456,y:-11111,w:0,h:0};
 
     for contour in contours.iter(){
         let [lt_box, rt_box, ld_box] = calculate_points_lt_rt_ld(&contour.points).expect("Calculate 3 Points Failed");
