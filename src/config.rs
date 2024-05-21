@@ -102,7 +102,7 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
     };
     
     let image_baizheng = ImageBaizheng {
-        page_number_diff: 0.23,
+        page_number_diff: 0.146,
         model_point_wh_cosine_similarity: 0.985,
         model_points_3_angle_threshold: 1.046,
         model_point_min_wh: 10,
