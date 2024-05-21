@@ -54,6 +54,8 @@ pub struct ImageBlackFill {
     pub neighborhood_size: u8,
     pub image_type: u8,
     pub min_filled_ratio: f32,
+    pub debug_rendering_show_rate_move: i32,
+    pub debug_rendering_show_rate_scale: f32
 }
 
 /// 识别类型参数
@@ -123,6 +125,8 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
         neighborhood_size: 5,
         image_type: 0,
         min_filled_ratio: 0.5,
+        debug_rendering_show_rate_move: 16,
+        debug_rendering_show_rate_scale: 20.0,
     };
     
     let recognize_type = RecognitionType {

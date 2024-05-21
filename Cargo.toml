@@ -21,6 +21,8 @@ serde_yaml = "0.9.34"
 rxing = "0.5.8"
 image-base64-wasm = "0.6.0"
 cargo-xwin = "0.16.4"
+ab_glyph = "0.2.17"
+font-kit = "0.12.0"
 
 
 [build-dependencies]
