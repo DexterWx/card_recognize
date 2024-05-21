@@ -7,8 +7,6 @@ use imageproc::rect::Rect;
 use imageproc::integral_image::sum_image_pixels;
 use imageproc::drawing::{draw_filled_rect_mut, draw_text_mut};
 use ab_glyph::FontArc;
-use font_kit::source::SystemSource;
-use font_kit::handle::Handle;
 
 pub trait RecBlackFill {
     /// 填涂识别
@@ -86,14 +84,8 @@ impl RecBlackFill for Engine {
 
     }
     fn rendering_black_fill_show_rate(output: &mut OutputRec){
-        // 加载系统字体
-        let font = match SystemSource::new().select_by_postscript_name("ArialMT") {
-            Ok(handle) => match handle {
-                Handle::Memory { bytes, font_index: _ } => FontArc::try_from_vec(bytes.to_vec()).unwrap(),
-                _ => panic!("Unexpected font handle type"),
-            },
-            Err(_) => panic!("Error loading system font"),
-        };
+        let font_data = include_bytes!("../../Roboto-Thin.ttf") as &[u8];
+        let font = FontArc::try_from_slice(font_data).expect("Error loading font");
         let color = Rgb([0, 0, 255]);
 
         for page in output.pages.iter_mut(){
