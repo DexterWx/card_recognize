@@ -172,17 +172,47 @@ pub fn rotate_point(point: &MyPoint, center: &MyPoint, angle_rad: f32) -> (i32, 
 }
 
 /// 参照定位点得到标注coodinate对应的真实coordinate
+// pub fn generate_real_coordinate_with_model_points(reference_model_points: &ReferenceModelPoints, coordinate: &Coordinate) -> Coordinate{
+//     let model_points = &reference_model_points.model_points;
+//     let real_model_points = &reference_model_points.real_model_points;
+//     let x_rate = ((real_model_points[0].x - real_model_points[1].x) as f32) / ((model_points[0].coordinate.x - model_points[1].coordinate.x) as f32);
+//     let y_rate = ((real_model_points[0].y - real_model_points[2].y) as f32) / ((model_points[0].coordinate.y - model_points[2].coordinate.y) as f32);
+
+//     let real_w = x_rate * (coordinate.w as f32);
+//     let real_h = y_rate * (coordinate.h as f32);
+
+//     let real_x = x_rate * (coordinate.x - model_points[0].coordinate.x) as f32 + real_model_points[0].x as f32;
+//     let real_y = y_rate * (coordinate.y - model_points[0].coordinate.y) as f32 + real_model_points[0].y as f32;
+
+//     // let real_x = real_x_center - (model_points[0].coordinate.w as f32 * real_w)/2.0;
+//     // let real_y = real_y_center - (model_points[0].coordinate.h as f32 * real_h)/2.0;
+
+//     Coordinate{
+//         x: real_x as i32,
+//         y: real_y as i32,
+//         w: real_w as i32,
+//         h: real_h as i32
+//     }
+    
+// }
+
 pub fn generate_real_coordinate_with_model_points(reference_model_points: &ReferenceModelPoints, coordinate: &Coordinate) -> Coordinate{
-    let model_points = &reference_model_points.model_points;
-    let real_model_points = &reference_model_points.real_model_points;
+    let model_points = reference_model_points.model_points;
+    let real_model_points = reference_model_points.real_model_points;
+    let mut target_point = &model_points[0].coordinate;
+    let mut real_target_point = &real_model_points[0];
+    if coordinate.y >= (model_points[0].coordinate.y + model_points[2].coordinate.y) * 3 / 5{
+        target_point = &model_points[2].coordinate;
+        real_target_point = &real_model_points[2];
+    }
     let x_rate = ((real_model_points[0].x - real_model_points[1].x) as f32) / ((model_points[0].coordinate.x - model_points[1].coordinate.x) as f32);
     let y_rate = ((real_model_points[0].y - real_model_points[2].y) as f32) / ((model_points[0].coordinate.y - model_points[2].coordinate.y) as f32);
 
     let real_w = x_rate * (coordinate.w as f32);
     let real_h = y_rate * (coordinate.h as f32);
 
-    let real_x = x_rate * (coordinate.x - model_points[0].coordinate.x) as f32 + real_model_points[0].x as f32;
-    let real_y = y_rate * (coordinate.y - model_points[0].coordinate.y) as f32 + real_model_points[0].y as f32;
+    let real_x = x_rate * (coordinate.x - target_point.x) as f32 + real_target_point.x as f32;
+    let real_y = y_rate * (coordinate.y - target_point.y) as f32 + real_target_point.y as f32;
 
     // let real_x = real_x_center - (model_points[0].coordinate.w as f32 * real_w)/2.0;
     // let real_y = real_y_center - (model_points[0].coordinate.h as f32 * real_h)/2.0;
