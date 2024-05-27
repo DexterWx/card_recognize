@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use rxing::{
     BarcodeFormat,
     common::HybridBinarizer,
@@ -14,10 +14,11 @@ pub fn decode_barcode(img: DynamicImage) -> std::option::Option<String> {
     let multi_format_reader = MultiUseMultiFormatReader::default();
     let mut scanner = GenericMultipleBarcodeReader::new(multi_format_reader);
     let mut hints = HashMap::new();
-
-    hints
-        .entry(DecodeHintType::TRY_HARDER)
-        .or_insert(DecodeHintValue::TryHarder(true));
+    //hard模式尽可能识别，utf-8，单一条形码，只识别128那种条形码
+    hints.insert(DecodeHintType::TRY_HARDER, DecodeHintValue::TryHarder(true));
+    hints.insert(DecodeHintType::CHARACTER_SET, DecodeHintValue::CharacterSet(String::from("utf-8")));
+    hints.insert(DecodeHintType::PURE_BARCODE, DecodeHintValue::PureBarcode(true));
+    hints.insert(DecodeHintType::POSSIBLE_FORMATS, DecodeHintValue::PossibleFormats(HashSet::from([BarcodeFormat::CODE_128])));
     let decode_result = scanner.decode_multiple_with_hints(
         &mut BinaryBitmap::new(HybridBinarizer::new(BufferedImageLuminanceSource::new(img))),
         &hints,
