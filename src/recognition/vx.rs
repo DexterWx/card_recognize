@@ -2,16 +2,16 @@ use crate::{models::{engine_rec::ProcessedImages, rec_result::{OutputRec, Value}
 
 pub trait RecVX{
     /// 勾叉识别
-    fn rec_vx(&self, img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
-    fn rendering_vx(&self, output: &mut OutputRec);
+    fn rec_vx(img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
+    fn rendering_vx(output: &mut OutputRec);
 }
 
 impl RecVX for Engine {
-    fn rec_vx(&self, _img: &ProcessedImages, _coordinate: &Coordinate) -> Option<Value> {
+    fn rec_vx( _img: &ProcessedImages, _coordinate: &Coordinate) -> Option<Value> {
         None
     }
 
-    fn rendering_vx(&self, _output: &mut OutputRec) {
+    fn rendering_vx(_output: &mut OutputRec) {
         
     }
 }

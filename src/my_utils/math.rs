@@ -1,4 +1,5 @@
-use crate::{config::CONFIG, models::{card::MyPoint, scan_json::Coordinate}};
+use std::collections::HashSet;
+use crate::{config::CONFIG, models::{card::MyPoint, engine_rec::LocationInfo, scan_json::Coordinate}};
 
 /// 余弦相似度
 pub fn cosine_similarity(vec1: &[f32], vec2: &[f32]) -> f32 {
@@ -17,6 +18,21 @@ pub fn mean_absolute_difference(vec1: &[f32], vec2: &[f32]) -> f32 {
     sum_absolute_difference / n
 }
 
+pub fn normalize_vec(vec: &mut Vec<f32>) {
+    // 找到向量中的最小值和最大值
+    let min_val = *vec.iter().min_by(|x, y| x.partial_cmp(y).unwrap()).unwrap();
+    let max_val = *vec.iter().max_by(|x, y| x.partial_cmp(y).unwrap()).unwrap();
+    
+    // 计算范围
+    let range = max_val - min_val;
+    if range == 0f32{return}
+    
+    // 归一化处理
+    for val in vec {
+        *val = (*val - min_val) / range;
+    }
+}
+
 /// 欧氏距离
 pub fn euclidean_distance(point1: (f32, f32), point2: (f32, f32)) -> f32 {
     let dx = point2.0 - point1.0;
@@ -25,16 +41,172 @@ pub fn euclidean_distance(point1: (f32, f32), point2: (f32, f32)) -> f32 {
     (dx.powi(2) + dy.powi(2)).sqrt()
 }
 
-pub fn coordinates4_is_valid(coors: &[Coordinate; 4]) -> bool{
+pub fn coordinates4_is_valid(coors: &[Coordinate; 4], location_info: &LocationInfo) -> bool{
+    // 不能存在相同坐標
+    let mut seen = HashSet::new();
+    for &coor in coors.iter() {
+        if !seen.insert(coor) {
+            #[cfg(debug_assertions)]
+            {
+                println!("定位点存在相同坐标: {coors:?}");
+            }
+            return false; // 如果插入失败，说明已经存在相同的坐标，返回 false
+        }
+    }
+
+    // 四个定位点的组成的矩形面积不能小于20000
+    if (coors[0].x - coors[1].x).abs() * (coors[0].y - coors[2].y).abs() < 20000{return false;}
+    if (coors[3].x - coors[2].x).abs() * (coors[3].y - coors[1].y).abs() < 20000{return false;}
+    
+    // 四点是否距离等差
     let diff_x = ((coors[2].x - coors[0].x) - (coors[3].x - coors[1].x)).abs();
     let diff_y = ((coors[2].y - coors[0].y) - (coors[3].y - coors[1].y)).abs();
-    if diff_x > CONFIG.image_baizheng.model_point_diff{return false;}
-    if diff_y > CONFIG.image_baizheng.model_point_diff{return false;}
+    if diff_x > CONFIG.image_baizheng.model_point_diff || diff_y > CONFIG.image_baizheng.model_point_diff{
+        #[cfg(debug_assertions)]
+        {
+            println!("定位点距离差异常: diff_x {diff_x:?} diff_y {diff_y:?}");
+        }
+        return false;
+    }
+
+    // 四个角是否都接近90度
+    let valid_indexs = vec![
+        (2,0,1),
+        (0,1,3),
+        (3,2,0),
+        (1,3,2),
+    ];
+    for index in valid_indexs.iter(){
+        let coor3 = [&coors[index.0],&coors[index.1],&coors[index.2]];
+        let angle = calculate_coordinates_angle(&coor3);
+        let angle_diff = (angle - 90f32).abs();
+        if angle_diff >= CONFIG.image_baizheng.model_points_3_angle_threshold {
+            #[cfg(debug_assertions)]
+            {
+                println!("定位点中存在角度不是90的: {:?}_{:?}",index, angle);
+            }
+            return false;
+        }
+    }
+    
+    // 四个框的wh和标注的wh的余弦相似度是否有离群点
+    let mut cos_vec = Vec::new();
+    for coor in coors.iter(){
+        let cos = cosine_similarity(&vec![coor.w as f32,coor.h as f32], &vec![location_info.wh.0 as f32, location_info.wh.1 as f32]);
+        cos_vec.push(cos);
+    }
+    let cos_mean = mean(&cos_vec).unwrap();
+    let cos_std = standard_deviation(&cos_vec).unwrap();
+    for cos in cos_vec.iter(){
+        if *cos > CONFIG.image_baizheng.valid_coordinates4_cosine_similarity {continue}
+        if *cos < cos_mean - 1.5*cos_std {
+            #[cfg(debug_assertions)]
+            {
+                println!("定位点中存在离群点: {:?}",cos_vec);
+            }
+            return false
+        }
+    }
+
+    // 四个框的w+h是否有离群点
+    let mut sum_wh = Vec::new();
+    for coor in coors.iter(){
+        sum_wh.push((coor.w+coor.h) as f32);
+    }
+    let wh_mean = mean(&sum_wh).unwrap();
+    let wh_std = standard_deviation(&sum_wh).unwrap();
+    for wh in sum_wh.iter(){
+        if *wh < wh_mean - 1.5*wh_std && (*wh - wh_mean).abs() > CONFIG.image_baizheng.valid_coordinates_wh_sum_mean_dis{
+            #[cfg(debug_assertions)]
+            {
+                println!("定位点中存在离群点: {:?}",sum_wh);
+            }
+            return false
+        }
+    }
+    
     true
 }
 
 /// 从四个定位点中选三个合理的顶点
-pub fn find_3_valid_coordinates(coors: &[Coordinate; 4]) -> Option<[Coordinate; 3]>{
+pub fn find_3_valid_coordinates(coors: &[Coordinate; 4], location_info: &LocationInfo) -> Option<[Coordinate; 3]>{
+
+    let mut _coors = Vec::new();
+    // 过滤余弦相似度离群点
+    let mut cos_vec = Vec::new();
+    for coor in coors.iter(){
+        let cos = cosine_similarity(&vec![coor.w as f32,coor.h as f32], &vec![location_info.wh.0 as f32, location_info.wh.1 as f32]);
+        cos_vec.push(cos);
+    }
+    let cos_mean = mean(&cos_vec).unwrap();
+    let cos_std = standard_deviation(&cos_vec).unwrap();
+    for (i, cos) in cos_vec.iter().enumerate(){
+        if *cos > CONFIG.image_baizheng.valid_coordinates4_cosine_similarity {
+            _coors.push(coors[i]);
+            continue;
+        }
+        if *cos < cos_mean - 1.5*cos_std {
+            continue;
+        }
+        _coors.push(coors[i]);
+    }
+    
+    if _coors.len() < 3 {
+        #[cfg(debug_assertions)]
+        {
+            println!("三点定位中存在离群点: {:?}",cos_vec);
+        }
+        return None;
+    }
+    let coors = _coors;
+    let mut _coors = Vec::new();
+
+    // 过滤w+h离群点
+    let mut sum_wh = Vec::new();
+    for coor in coors.iter(){
+        sum_wh.push((coor.w+coor.h) as f32);
+    }
+    let wh_mean = mean(&sum_wh).unwrap();
+    let wh_std = standard_deviation(&sum_wh).unwrap();
+    for (i,wh) in sum_wh.iter().enumerate(){
+        if *wh < wh_mean - 1.5*wh_std && (*wh - wh_mean).abs() > CONFIG.image_baizheng.valid_coordinates_wh_sum_mean_dis {
+            continue;
+        }
+        _coors.push(coors[i]);
+
+    }
+
+    if _coors.len() < 3 {
+        #[cfg(debug_assertions)]
+        {
+            println!("三点定位中存在离群点: {:?}",sum_wh);
+        }
+        return None;
+    }
+    let coors = _coors;
+    
+    if coors.len() == 3 {
+        let valid_indexs = vec![
+            (0,1,2),
+            (1,2,0),
+            (1,0,2),
+        ];
+        let mut min_diff_indexs = None;
+        let mut min_diff = 361f32;
+        for index in valid_indexs.iter(){
+            let coor3 = [&coors[index.0],&coors[index.1],&coors[index.2]];
+            let angle = calculate_coordinates_angle(&coor3);
+            let angle_diff = (angle - 90f32).abs();
+            if angle_diff >= CONFIG.image_baizheng.model_points_3_angle_threshold {continue}
+            if angle_diff < min_diff {
+                min_diff = angle_diff;
+                min_diff_indexs = Some([coors[index.0], coors[index.1], coors[index.2]]);
+            }
+        }
+        return min_diff_indexs;
+    }
+
+    // 剩余四个点
     // 四个顶点分别为夹角，判断是否符合3点直角条件
     let valid_indexs = vec![
         (2,0,1),
@@ -123,4 +295,25 @@ pub fn cal_segment_angle(p1: MyPoint, p2: MyPoint, q1: MyPoint, q2: MyPoint) -> 
     let angle_rad = cross_product.atan2(dot_product);
 
     angle_rad
+}
+
+// 计算向量的均值
+fn mean(data: &[f32]) -> Option<f32> {
+    let sum: f32 = data.iter().sum();
+    let count = data.len() as f32;
+    if count > 0.0 {
+        Some(sum / count)
+    } else {
+        None
+    }
+}
+
+// 计算向量的标准差
+fn standard_deviation(data: &[f32]) -> Option<f32> {
+    if let Some(mean) = mean(data) {
+        let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / (data.len() as f32);
+        Some(variance.sqrt())
+    } else {
+        None
+    }
 }

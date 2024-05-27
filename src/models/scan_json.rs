@@ -71,7 +71,7 @@ impl<'de> Deserialize<'de> for Number {
     }
 }
 
-#[derive(Debug, Serialize, Clone, Copy)]
+#[derive(Debug, Serialize, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Coordinate {
     pub x: i32,
     pub y: i32,
@@ -200,4 +200,17 @@ impl Page {
             model_points_4:Some([lt, rt, ld, rd]),
         }
     }
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InputSecond {
+    pub task_id: String,
+    pub pages: Vec<PageSecond>,
+    pub images: Vec<String>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PageSecond {
+    pub recognizes: Vec<Recognition>
 }

@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
-use super::{card::MyPoint, scan_json::{AssistPoint, Coordinate, InputScan}};
+use super::{card::MyPoint, scan_json::{AssistPoint, Coordinate, InputScan, InputSecond}};
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -102,6 +102,43 @@ impl OutputRec{
                 }
             }).collect(),
             images: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OutputRecSecond{
+    pub task_id: String,
+    pub pages: Vec<PageSecond>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PageSecond{
+    pub image_rendering: Option<String>,
+    pub recognizes: Vec<Recognize>
+}
+
+impl OutputRecSecond{
+    pub fn new(input: &InputSecond) -> Self {
+        OutputRecSecond{
+            task_id: "".to_string(),
+            pages: input.pages.iter().map(|page| {
+                PageSecond{
+                    image_rendering: None,
+                    recognizes: page.recognizes.iter().map(|rec| {
+                        Recognize {
+                            rec_id: rec.rec_id.clone(),
+                            rec_type: rec.rec_type,
+                            rec_options: rec.options.iter().map(|_|{
+                                RecOption{
+                                    value: None,
+                                    coordinate: None
+                                }
+                            }).collect()
+                        }
+                    }).collect()
+                }
+            }).collect()
         }
     }
 }

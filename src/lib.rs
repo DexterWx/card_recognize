@@ -19,7 +19,7 @@ mod tests {
     use anyhow::{Result, Ok};
     use image_base64_wasm::to_base64;
 
-    use self::my_utils::image::trans_base64_to_image;
+    use self::{models::scan_json::InputSecond, my_utils::image::trans_base64_to_image};
 
     use super::*;
     use models::scan_json::{InputScan,InputImage};
@@ -51,7 +51,7 @@ mod tests {
         for (index,page) in output.pages.iter().enumerate(){
             if matches!(page.image_rendering, None){continue;}
             let img = page.image_rendering.as_ref().unwrap();
-            let img = trans_base64_to_image(img);
+            let img = trans_base64_to_image(img)?;
             let path = format!("dev/test_data/output_rendering_{index}.jpg");
             let _ = img.to_rgb8().save(path);
         }
@@ -65,6 +65,24 @@ mod tests {
 
     }
 
+    #[test]
+    fn test_second() -> Result<()> {
+        // 直接修改id就可以测试
+        let test_id = "194751";
+        let json_path = format!("dev/test_data/cards/{test_id}/scan_second.json");
+
+        // 构建第一次输入的scanjson和第二次输入图片
+        let input = read_second(&json_path);
+
+        // 识别
+        let output = Engine::recognize_second(&input);
+
+        let out_json_path = format!("dev/test_data/{test_id}_second.json");
+        let mut file = File::create(out_json_path)?;
+        serde_json::to_writer(&mut file, &output)?;
+
+        Ok(())
+    }
 
     fn read_json(json_path: &str) -> InputScan {
         
@@ -80,6 +98,21 @@ mod tests {
         let parsed_struct: InputScan = serde_json::from_str(&json_str).expect("Parse InputScan Failed");
         let input1 = parsed_struct.renew();
         input1
+    }
+
+    fn read_second(json_path: &str) -> InputSecond {
+        
+        let scan_path = Path::new(json_path).to_str().expect("Parse Json Path Failed").to_string();
+        let mut file = File::open(scan_path).expect("Failed to open file");
+
+        // 读取文件内容
+        let mut json_str = String::new();
+        file.read_to_string(&mut json_str)
+            .expect("Failed to read file");
+
+        // 将 JSON 解析为 InputScan 结构体
+        let input: InputSecond = serde_json::from_str(&json_str).expect("Parse InputScan Failed");
+        input
     }
 
     fn read_image(image_dir:&str) -> Result<InputImage> {
@@ -120,7 +153,7 @@ mod tests {
 
 
 pub mod build{
-    use crate::{models, recognition};
+    use crate::{models::{self, scan_json::InputSecond}, recognition};
 
     use models::scan_json::{InputImage, InputScan};
     use recognition::engine::Engine;
@@ -151,5 +184,13 @@ pub mod build{
             // 使用 serde_json 将结果序列化为 JSON 字符串
             serde_json::to_string(&output_json).expect("Failed to serialize JSON")
         }
+    }
+
+    #[napi]
+    pub fn inference_second(input_json:String) -> String {
+        let input: InputSecond = serde_json::from_str(&input_json).expect("Parse Input Failed");
+        let result = Engine::recognize_second(&input);
+        // 使用 serde_json 将结果序列化为 JSON 字符串
+        serde_json::to_string(&result).expect("Failed to serialize JSON")
     }
 }

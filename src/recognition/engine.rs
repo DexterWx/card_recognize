@@ -1,9 +1,9 @@
-use crate::models::scan_json::{self, InputImage};
+use crate::models::scan_json::{self, InputImage, InputSecond};
 use crate::config::CONFIG;
 
 use crate::models::engine_rec::ReferenceModelPoints;
-use crate::models::rec_result::{OutputRec, PageSize, Value};
-use crate::my_utils::image::{generate_real_coordinate_with_model_points, image_to_base64};
+use crate::models::rec_result::{OutputRec, OutputRecSecond, PageSize, Value};
+use crate::my_utils::image::{generate_real_coordinate_with_model_points, image_to_base64, process_image};
 use crate::models::engine_rec::ProcessedImagesAndModelPoints;
 use crate::recognition::barcode::RecBarcode;
 use crate::recognition::black_fill::RecBlackFill;
@@ -48,13 +48,21 @@ impl Engine {
         {
             self.rendering_model_points(&mut imgs_and_model_points, &mut output);
             self.rendering_assist_points(&mut imgs_and_model_points, &mut output);
-            self.rendering_black_fill(&mut output);
-            self.rendering_number(&mut output);
-            self.rendering_vx(&mut output);
-            self.rendering_barcode(&mut output);
+            Engine::rendering_black_fill_show_rate(&mut output);
+            self.rendering_page_number(&mut imgs_and_model_points, &mut output);
+            Engine::rendering_black_fill(&mut output);
+            Engine::rendering_number(&mut output);
+            Engine::rendering_vx(&mut output);
+            Engine::rendering_barcode(&mut output);
         }
 
         (output, imgs_and_model_points)
+    }
+
+    pub fn recognize_second(input: &InputSecond) -> OutputRecSecond {
+        let mut output = OutputRecSecond::new(input);
+        _recognize_second(input, &mut output);
+        output
     }
 }
 
@@ -93,19 +101,19 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                 let mut res:Option<Value> = None;
                 match rec.rec_type {
                     rec_type if rec_type==CONFIG.recognize_type.black_fill => {
-                        res = engine.rec_black_fill(&img_and_model_points.img, &real_coordinate);
+                        res = Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate);
                     }
                     rec_type if rec_type==CONFIG.recognize_type.vx => {
-                        res = engine.rec_vx(&img_and_model_points.img, &real_coordinate);
+                        res = Engine::rec_vx(&img_and_model_points.img, &real_coordinate);
                     }
                     rec_type if rec_type==CONFIG.recognize_type.number => {
-                        res = engine.rec_number(&img_and_model_points.img, &real_coordinate);
+                        res = Engine::rec_number(&img_and_model_points.img, &real_coordinate);
                     }
                     rec_type if rec_type==CONFIG.recognize_type.qrcode => {
-                        res = engine.rec_barcode(&img_and_model_points.img, &real_coordinate);
+                        res = Engine::rec_barcode(&img_and_model_points.img, &real_coordinate);
                     }
                     rec_type if rec_type==CONFIG.recognize_type.barcode => {
-                        res = engine.rec_barcode(&img_and_model_points.img, &real_coordinate);
+                        res = Engine::rec_barcode(&img_and_model_points.img, &real_coordinate);
                     }
                     rec_type if rec_type==CONFIG.recognize_type.coordinate => {
                         option_out.coordinate = Some(real_coordinate);
@@ -116,6 +124,46 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                 #[cfg(debug_assertions)]
                 {
                     option_out.coordinate = Some(real_coordinate);
+                }
+                
+            }
+        }
+    }
+}
+
+
+fn _recognize_second(input: &InputSecond, output: &mut OutputRecSecond) {
+    for (page,(img,page_out)) in input.pages.iter().zip(input.images.iter().zip(output.pages.iter_mut())){
+        let img = process_image(None, img).unwrap();
+        for (rec, rec_out) in page.recognizes.iter().zip(page_out.recognizes.iter_mut()){
+            for (option, option_out) in rec.options.iter().zip(rec_out.rec_options.iter_mut()) {
+                let real_coordinate = &option.coordinate;
+                let mut res:Option<Value> = None;
+                match rec.rec_type {
+                    rec_type if rec_type==CONFIG.recognize_type.black_fill => {
+                        res = Engine::rec_black_fill(&img, real_coordinate);
+                    }
+                    rec_type if rec_type==CONFIG.recognize_type.vx => {
+                        res = Engine::rec_vx(&img, real_coordinate);
+                    }
+                    rec_type if rec_type==CONFIG.recognize_type.number => {
+                        res = Engine::rec_number(&img, real_coordinate);
+                    }
+                    rec_type if rec_type==CONFIG.recognize_type.qrcode => {
+                        res = Engine::rec_barcode(&img, real_coordinate);
+                    }
+                    rec_type if rec_type==CONFIG.recognize_type.barcode => {
+                        res = Engine::rec_barcode(&img, real_coordinate);
+                    }
+                    rec_type if rec_type==CONFIG.recognize_type.coordinate => {
+                        option_out.coordinate = Some(real_coordinate.clone());
+                    }
+                    _ =>{}
+                }
+                option_out.value = res;
+                #[cfg(debug_assertions)]
+                {
+                    option_out.coordinate = Some(real_coordinate.clone());
                 }
                 
             }

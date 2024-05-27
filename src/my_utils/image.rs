@@ -1,5 +1,6 @@
 use std::io::Cursor;
 
+use anyhow::{Result, Ok};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
 use imageproc::contrast::threshold;
 use imageproc::distance_transform::Norm;
@@ -171,17 +172,47 @@ pub fn rotate_point(point: &MyPoint, center: &MyPoint, angle_rad: f32) -> (i32, 
 }
 
 /// 参照定位点得到标注coodinate对应的真实coordinate
+// pub fn generate_real_coordinate_with_model_points(reference_model_points: &ReferenceModelPoints, coordinate: &Coordinate) -> Coordinate{
+//     let model_points = &reference_model_points.model_points;
+//     let real_model_points = &reference_model_points.real_model_points;
+//     let x_rate = ((real_model_points[0].x - real_model_points[1].x) as f32) / ((model_points[0].coordinate.x - model_points[1].coordinate.x) as f32);
+//     let y_rate = ((real_model_points[0].y - real_model_points[2].y) as f32) / ((model_points[0].coordinate.y - model_points[2].coordinate.y) as f32);
+
+//     let real_w = x_rate * (coordinate.w as f32);
+//     let real_h = y_rate * (coordinate.h as f32);
+
+//     let real_x = x_rate * (coordinate.x - model_points[0].coordinate.x) as f32 + real_model_points[0].x as f32;
+//     let real_y = y_rate * (coordinate.y - model_points[0].coordinate.y) as f32 + real_model_points[0].y as f32;
+
+//     // let real_x = real_x_center - (model_points[0].coordinate.w as f32 * real_w)/2.0;
+//     // let real_y = real_y_center - (model_points[0].coordinate.h as f32 * real_h)/2.0;
+
+//     Coordinate{
+//         x: real_x as i32,
+//         y: real_y as i32,
+//         w: real_w as i32,
+//         h: real_h as i32
+//     }
+    
+// }
+
 pub fn generate_real_coordinate_with_model_points(reference_model_points: &ReferenceModelPoints, coordinate: &Coordinate) -> Coordinate{
-    let model_points = &reference_model_points.model_points;
-    let real_model_points = &reference_model_points.real_model_points;
+    let model_points = reference_model_points.model_points;
+    let real_model_points = reference_model_points.real_model_points;
+    let mut target_point = &model_points[0].coordinate;
+    let mut real_target_point = &real_model_points[0];
+    if coordinate.y >= (model_points[0].coordinate.y + model_points[2].coordinate.y) * 3 / 5{
+        target_point = &model_points[2].coordinate;
+        real_target_point = &real_model_points[2];
+    }
     let x_rate = ((real_model_points[0].x - real_model_points[1].x) as f32) / ((model_points[0].coordinate.x - model_points[1].coordinate.x) as f32);
     let y_rate = ((real_model_points[0].y - real_model_points[2].y) as f32) / ((model_points[0].coordinate.y - model_points[2].coordinate.y) as f32);
 
     let real_w = x_rate * (coordinate.w as f32);
     let real_h = y_rate * (coordinate.h as f32);
 
-    let real_x = x_rate * (coordinate.x - model_points[0].coordinate.x) as f32 + real_model_points[0].x as f32;
-    let real_y = y_rate * (coordinate.y - model_points[0].coordinate.y) as f32 + real_model_points[0].y as f32;
+    let real_x = x_rate * (coordinate.x - target_point.x) as f32 + real_target_point.x as f32;
+    let real_y = y_rate * (coordinate.y - target_point.y) as f32 + real_target_point.y as f32;
 
     // let real_x = real_x_center - (model_points[0].coordinate.w as f32 * real_w)/2.0;
     // let real_y = real_y_center - (model_points[0].coordinate.h as f32 * real_h)/2.0;
@@ -195,23 +226,25 @@ pub fn generate_real_coordinate_with_model_points(reference_model_points: &Refer
     
 }
 
-pub fn trans_base64_to_image(base64_image: &String) -> DynamicImage {
+pub fn trans_base64_to_image(base64_image: &String) -> Result<DynamicImage> {
     let base64_data = from_base64(base64_image.clone());
     // 将解码后的数据加载为图像
-    let image = image::load_from_memory(&base64_data)
-        .expect("Failed to load image from memory");
-    image
+    let image = image::load_from_memory(&base64_data)?;
+    Ok(image)
 }
 
 /// 处理图片，返回图片预处理过程每一步中间图
 /// 并根据长宽比例完成图片的90度翻转
-pub fn process_image(model_size: &ModelSize, base64_image: &String) -> ProcessedImages {
-    let mut img = trans_base64_to_image(base64_image);
+pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> Result<ProcessedImages> {
+    let mut img = trans_base64_to_image(base64_image)?;
     // 如果标注的长宽大小和图片的长宽大小关系不同，说明图片需要90度偏转
-    let flag_need_90 = (model_size.h > model_size.w) != (img.height() > img.width());
-    if flag_need_90{
-        img = img.rotate90();
-    };
+    if !model_size.is_none() {
+        let model_size = model_size.unwrap();
+        let flag_need_90 = (model_size.h > model_size.w) != (img.height() > img.width());
+        if flag_need_90{
+            img = img.rotate270();
+        };
+    }
     
     let rgb_img = img.to_rgb8();
     let gray_img = img.to_luma8();
@@ -227,14 +260,14 @@ pub fn process_image(model_size: &ModelSize, base64_image: &String) -> Processed
     let integral_gray:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&blurred_img_bi);
     let integral_morphology:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&mor_img);
 
-    ProcessedImages{
+    Ok(ProcessedImages{
         org: Some(base64_image.clone()),
         rgb: rgb_img,
         blur: blurred_img,
         morphology: mor_img,
         integral_gray: integral_gray,
         integral_morphology: integral_morphology,
-    }
+    })
 }
 
 pub fn generate_mophology_from_blur(blurred_img: &ImageBuffer<Luma<u8>, Vec<u8>>, image_process_args: &ProcessedImagesArgs) -> ImageBuffer<Luma<u8>, Vec<u8>>{
@@ -271,8 +304,8 @@ pub fn calculate_page_number_difference(
             integral_img,
             coordinate.x as u32,
             coordinate.y as u32,
-            coordinate.x as u32 + coordinate.w as u32,
-            coordinate.y as u32 + coordinate.h as u32
+            coordinate.x as u32 + coordinate.w as u32 - 1u32,
+            coordinate.y as u32 + coordinate.h as u32 - 1u32
         )[0];
         let mean_pixel = sum_pixel / (coordinate.w * coordinate.h) as i64;
         let rate_pixel = 1.0 - mean_pixel as f32 / 255f32;
