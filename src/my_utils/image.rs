@@ -214,9 +214,6 @@ pub fn generate_real_coordinate_with_model_points(reference_model_points: &Refer
     let real_x = x_rate * (coordinate.x - target_point.x) as f32 + real_target_point.x as f32;
     let real_y = y_rate * (coordinate.y - target_point.y) as f32 + real_target_point.y as f32;
 
-    // let real_x = real_x_center - (model_points[0].coordinate.w as f32 * real_w)/2.0;
-    // let real_y = real_y_center - (model_points[0].coordinate.h as f32 * real_h)/2.0;
-
     Coordinate{
         x: real_x as i32,
         y: real_y as i32,
@@ -225,6 +222,22 @@ pub fn generate_real_coordinate_with_model_points(reference_model_points: &Refer
     }
     
 }
+
+// fn get_min_dis_model_point_index(reference_model_points: &ReferenceModelPoints, coordinate: &Coordinate) -> usize {
+//     let mut min_dis = 1111111f32;
+//     let mut index = 0usize;
+//     for (i, model_point) in reference_model_points.model_points.iter().enumerate(){
+//         let dis = euclidean_distance(
+//             (model_point.coordinate.x as f32, model_point.coordinate.y as f32),
+//             (coordinate.x as f32, coordinate.y as f32),
+//         );
+//         if dis < min_dis {
+//             min_dis = dis;
+//             index = i;
+//         }
+//     }
+//     index
+// }
 
 pub fn trans_base64_to_image(base64_image: &String) -> Result<DynamicImage> {
     let base64_data = from_base64(base64_image.clone());
