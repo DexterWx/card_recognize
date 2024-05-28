@@ -26,6 +26,7 @@ use crate::models::rec_result::ImageStatus;
 use crate::models::rec_result::MoveOperation;
 use crate::models::rec_result::OutputRec;
 
+use crate::models::scan_json::AreaAssistPoint;
 use crate::models::scan_json::AssistPoint;
 use crate::models::scan_json::InputImage;
 
@@ -244,7 +245,7 @@ impl Baizheng for Engine {
     fn rendering_assist_points(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
         for (page,(img_and_model_points,page_out)) in self.get_scan_data().pages.iter().zip(imgs_and_model_points.iter().zip(output.pages.iter_mut())){
             if matches!(img_and_model_points,None) {continue;}
-            if matches!(page.assist_points, None) {continue;}
+            if matches!(page.area_assist_points, None) {continue;}
             if matches!(page_out.image_rendering, None){continue;}
             let rendering = trans_base64_to_image(&page_out.image_rendering.as_ref().expect("image_rendering is None"));
             if rendering.is_err(){continue}
@@ -256,34 +257,36 @@ impl Baizheng for Engine {
                 model_points: &page.model_points_4.expect("model_points_4 is None"),
                 real_model_points: &img_and_model_points.real_model_points
             };
-            let assist_points = page.assist_points.as_ref().unwrap();
-            let fix_assist_points = page_out.assist_points.as_ref().unwrap();
-            for (point, fix_point) in assist_points.iter().zip(fix_assist_points.iter()){
-                let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left);
-                let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right);
-                draw_filled_rect_mut(
-                    &mut rendering,
-                    Rect::at(left_coor.x, left_coor.y).of_size(left_coor.w as u32, left_coor.h as u32),
-                    Rgb([255u8, 0u8, 0u8]),
-                );
-
-                draw_filled_rect_mut(
-                    &mut rendering,
-                    Rect::at(right_coor.x, right_coor.y).of_size(right_coor.w as u32, right_coor.h as u32),
-                    Rgb([255u8, 0u8, 0u8]),
-                );
-
-                draw_filled_rect_mut(
-                    &mut rendering,
-                    Rect::at(fix_point.left.x, fix_point.left.y).of_size(fix_point.left.w as u32, fix_point.left.h as u32),
-                    Rgb([0u8, 0u8, 255u8]),
-                );
-
-                draw_filled_rect_mut(
-                    &mut rendering,
-                    Rect::at(fix_point.right.x, fix_point.right.y).of_size(fix_point.right.w as u32, fix_point.right.h as u32),
-                    Rgb([0u8, 0u8, 255u8]),
-                );
+            let area_assist_points = page.area_assist_points.as_ref().unwrap();
+            let fix_area_assist_points = page_out.area_assist_points.as_ref().unwrap();
+            for (area_assist_point, fix_area_assist_point) in area_assist_points.iter().zip(fix_area_assist_points.iter()){
+                for (point, fix_point) in area_assist_point.assist_points.iter().zip(fix_area_assist_point.assist_points.iter()){
+                    let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left);
+                    let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right);
+                    draw_filled_rect_mut(
+                        &mut rendering,
+                        Rect::at(left_coor.x, left_coor.y).of_size(left_coor.w as u32, left_coor.h as u32),
+                        Rgb([255u8, 0u8, 0u8]),
+                    );
+    
+                    draw_filled_rect_mut(
+                        &mut rendering,
+                        Rect::at(right_coor.x, right_coor.y).of_size(right_coor.w as u32, right_coor.h as u32),
+                        Rgb([255u8, 0u8, 0u8]),
+                    );
+    
+                    draw_filled_rect_mut(
+                        &mut rendering,
+                        Rect::at(fix_point.left.x, fix_point.left.y).of_size(fix_point.left.w as u32, fix_point.left.h as u32),
+                        Rgb([0u8, 0u8, 255u8]),
+                    );
+    
+                    draw_filled_rect_mut(
+                        &mut rendering,
+                        Rect::at(fix_point.right.x, fix_point.right.y).of_size(fix_point.right.w as u32, fix_point.right.h as u32),
+                        Rgb([0u8, 0u8, 255u8]),
+                    );
+                }
             }
             let img_base64 = image_to_base64(&rendering);
             page_out.image_rendering = Some(img_base64);
@@ -296,9 +299,9 @@ impl Baizheng for Engine {
                 output.pages.iter_mut()
             )
         ){
-            if page.assist_points.is_none(){continue;}
+            if page.area_assist_points.is_none(){continue;}
             if img_and_model_points.is_none(){continue;}
-            let assist_points = page.assist_points.as_ref().unwrap();
+            let area_assist_points = page.area_assist_points.as_ref().unwrap();
             let img_and_model_points = img_and_model_points.as_ref().unwrap();
             let reference_model_points = ReferenceModelPoints{
                 model_points: &page.model_points_4.expect("model_points_4 is None"),
@@ -306,38 +309,45 @@ impl Baizheng for Engine {
             };
             let move_hash = &mut out_page.assist_points_move_op;
             let mut fix_assist_points:Vec<AssistPoint> = Vec::new();
-            for point in assist_points.iter(){
-                if point.left.y != point.right.y {continue;}
-                let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left);
-                let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right);
-                let mut fix_left_coor = left_coor.clone();
-                let mut fix_right_coor = right_coor.clone();
-                fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_nearby_length);
-                fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
-                fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
-                fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
-                fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_nearby_length);
-                fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
-                fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
-                fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
+            let mut fix_area_assist_points:Vec<AreaAssistPoint> = Vec::new();
+            for area_assist_point in area_assist_points.iter(){
+                for point in area_assist_point.assist_points.iter(){
+                    if point.left.y != point.right.y {continue;}
+                    let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left);
+                    let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right);
+                    let mut fix_left_coor = left_coor.clone();
+                    let mut fix_right_coor = right_coor.clone();
+                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_nearby_length);
+                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
+                    fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
+                    fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
+                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_nearby_length);
+                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
+                    fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
+                    fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
 
-                let move_op = generate_move_op([left_coor,right_coor], [fix_left_coor, fix_right_coor]);
-                move_hash.insert(point.left.y, move_op);
-                fix_assist_points.push(
-                    AssistPoint{
-                        left: fix_left_coor.clone(),
-                        right: fix_right_coor.clone(),
+                    let move_op = generate_move_op([left_coor,right_coor], [fix_left_coor, fix_right_coor]);
+                    move_hash.insert(point.left.y, move_op);
+                    fix_assist_points.push(
+                        AssistPoint{
+                            left: fix_left_coor,
+                            right: fix_right_coor,
+                        }
+                    );
+                }
+                fix_area_assist_points.push(
+                    AreaAssistPoint{
+                        assist_points: fix_assist_points.clone()
                     }
                 );
             }
-            out_page.assist_points = Some(fix_assist_points);
+            out_page.area_assist_points = Some(fix_area_assist_points);
         }
     }
 
     fn rendering_page_number(&self, imgs_and_model_points: &mut Vec<Option<ProcessedImagesAndModelPoints>>, output: &mut OutputRec){
         for (page,(img_and_model_points,page_out)) in self.get_scan_data().pages.iter().zip(imgs_and_model_points.iter().zip(output.pages.iter_mut())){
             if matches!(img_and_model_points,None) {continue;}
-            if matches!(page.assist_points, None) {continue;}
             if matches!(page_out.image_rendering, None){continue;}
             let rendering = trans_base64_to_image(&page_out.image_rendering.as_ref().expect("image_rendering is None"));
             if rendering.is_err(){continue}

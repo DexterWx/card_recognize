@@ -25,9 +25,14 @@ pub struct Page {
     pub model_size: ModelSize,
     pub model_points: Vec<ModelPoint>,
     pub page_number_points: Vec<PageNumberPoint>,
-    pub assist_points: Option<Vec<AssistPoint>>,
+    pub area_assist_points: Option<Vec<AreaAssistPoint>>,
     pub recognizes: Vec<Recognition>,
     pub model_points_4: Option<[ModelPoint;4]>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AreaAssistPoint {
+    pub assist_points: Vec<AssistPoint>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -195,7 +200,7 @@ impl Page {
             model_size:self.model_size,
             model_points:self.model_points.clone(),
             page_number_points:self.page_number_points.clone(),
-            assist_points:self.assist_points.clone(),
+            area_assist_points:self.area_assist_points.clone(),
             recognizes:self.recognizes.clone(),
             model_points_4:Some([lt, rt, ld, rd]),
         }
