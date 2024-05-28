@@ -65,8 +65,8 @@ impl Baizheng for Engine {
             let img = img.unwrap();
             let mean_pixel = sum_image_pixels(
                 &img.integral_gray, 0, 0, img.morphology.width()-1, img.morphology.height()-1
-            )[0]/((img.morphology.width() * img.morphology.height()) as i64);
-            if mean_pixel > CONFIG.image_process.empty_image_threshold as i64{continue;}
+            )[0] as f64/((img.morphology.width() * img.morphology.height()) as i64) as f64;
+            if mean_pixel > CONFIG.image_process.empty_image_threshold {continue;}
             imgs.push(img);
         }
         // 计算每张图片真实定位点
