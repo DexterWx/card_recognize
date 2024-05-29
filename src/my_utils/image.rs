@@ -196,14 +196,20 @@ pub fn rotate_point(point: &MyPoint, center: &MyPoint, angle_rad: f32) -> (i32, 
     
 // }
 
-pub fn generate_real_coordinate_with_model_points(reference_model_points: &ReferenceModelPoints, coordinate: &Coordinate) -> Coordinate{
+pub fn generate_real_coordinate_with_model_points(reference_model_points: &ReferenceModelPoints, coordinate: &Coordinate, use_first_model_point: bool, flag_y: Option<i32>) -> Coordinate{
     let model_points = reference_model_points.model_points;
     let real_model_points = reference_model_points.real_model_points;
     let mut target_point = &model_points[0].coordinate;
     let mut real_target_point = &real_model_points[0];
-    if coordinate.y >= (model_points[0].coordinate.y + model_points[2].coordinate.y) * 3 / 5{
-        target_point = &model_points[2].coordinate;
-        real_target_point = &real_model_points[2];
+    if !use_first_model_point {
+        let mut _y = coordinate.y;
+        if !flag_y.is_none(){
+            _y = flag_y.unwrap();
+        }
+        if _y as f32 >= model_points[0].coordinate.y as f32 + ((model_points[2].coordinate.y - model_points[0].coordinate.y)) as f32 * CONFIG.location.select_model_point_cal_real_coor_y_boundary{
+            target_point = &model_points[2].coordinate;
+            real_target_point = &real_model_points[2];
+        }
     }
     let x_rate = ((real_model_points[0].x - real_model_points[1].x) as f32) / ((model_points[0].coordinate.x - model_points[1].coordinate.x) as f32);
     let y_rate = ((real_model_points[0].y - real_model_points[2].y) as f32) / ((model_points[0].coordinate.y - model_points[2].coordinate.y) as f32);
@@ -265,6 +271,7 @@ pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> R
     let blurred_img = gaussian_blur_f32(&gray_img, CONFIG.image_process.gaussian_blur_sigma);
     // 对模糊后的图像进行二值化
     let blurred_img_bi = threshold(&blurred_img, CONFIG.image_process.retry_args[0].binarization_threshold);
+    
     // 生成形态学图的可调节参数
     let _process_args = &CONFIG.image_process.retry_args[0];
     // 形态学变换图
@@ -272,6 +279,9 @@ pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> R
 
     let integral_gray:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&blurred_img_bi);
     let integral_morphology:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&mor_img);
+
+    // let path = format!("dev/test_data/blur.jpg");
+    // blurred_img_bi.save(path);
 
     Ok(ProcessedImages{
         org: Some(base64_image.clone()),

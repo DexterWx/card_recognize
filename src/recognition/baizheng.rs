@@ -58,7 +58,7 @@ impl Baizheng for Engine {
         // 读图+处理成ProcessedImages，包含各种预处理的图片
         let mut imgs: Vec<ProcessedImages> = Vec::new();
         for base64_image in &input_images.images{
-            let img = process_image(Some(&self.get_scan_data().pages[0].model_size), base64_image);
+            let img: Result<ProcessedImages, anyhow::Error> = process_image(Some(&self.get_scan_data().pages[0].model_size), base64_image);
             if img.is_err(){
                 println!("图片格式错误");
                 continue;
@@ -261,8 +261,8 @@ impl Baizheng for Engine {
             let fix_area_assist_points = page_out.area_assist_points.as_ref().unwrap();
             for (area_assist_point, fix_area_assist_point) in area_assist_points.iter().zip(fix_area_assist_points.iter()){
                 for (point, fix_point) in area_assist_point.assist_points.iter().zip(fix_area_assist_point.assist_points.iter()){
-                    let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left);
-                    let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right);
+                    let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left,  true, None);
+                    let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right,  true, None);
                     draw_filled_rect_mut(
                         &mut rendering,
                         Rect::at(left_coor.x, left_coor.y).of_size(left_coor.w as u32, left_coor.h as u32),
@@ -308,38 +308,79 @@ impl Baizheng for Engine {
                 real_model_points: &img_and_model_points.real_model_points
             };
             let move_hash = &mut out_page.assist_points_move_op;
-            let mut fix_assist_points:Vec<AssistPoint> = Vec::new();
             let mut fix_area_assist_points:Vec<AreaAssistPoint> = Vec::new();
+            let mut org_area_assist_points:Vec<AreaAssistPoint> = Vec::new();
             for area_assist_point in area_assist_points.iter(){
-                for point in area_assist_point.assist_points.iter(){
-                    if point.left.y != point.right.y {continue;}
-                    let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.left);
-                    let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.right);
-                    let mut fix_left_coor = left_coor.clone();
-                    let mut fix_right_coor = right_coor.clone();
-                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_nearby_length);
-                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
-                    fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
-                    fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
-                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_nearby_length);
-                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_nearby_length);
-                    fix_coordinate(&img_and_model_points.img, &mut fix_left_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
-                    fix_coordinate(&img_and_model_points.img, &mut fix_right_coor, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
-
-                    let move_op = generate_move_op([left_coor,right_coor], [fix_left_coor, fix_right_coor]);
-                    move_hash.insert(point.left.y, move_op);
+                let mut fix_assist_points:Vec<AssistPoint> = Vec::new();
+                let mut org_assist_points:Vec<AssistPoint> = Vec::new();
+                let mut _y = None;
+                if area_assist_point.assist_points.len() != 0{
+                    _y = Some(area_assist_point.assist_points[0].left.y);
+                }
+                for assist_point in area_assist_point.assist_points.iter(){
+                    if assist_point.left.y != assist_point.right.y {continue;}
+                    let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &assist_point.left, false, _y);
+                    let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &assist_point.right, false, _y);
                     fix_assist_points.push(
                         AssistPoint{
-                            left: fix_left_coor,
-                            right: fix_right_coor,
+                            left: left_coor,
+                            right: right_coor,
+                        }
+                    );
+                    let left_coor = generate_real_coordinate_with_model_points(&reference_model_points, &assist_point.left, true, None);
+                    let right_coor = generate_real_coordinate_with_model_points(&reference_model_points, &assist_point.right, true, None);
+                    org_assist_points.push(
+                        AssistPoint{
+                            left: left_coor,
+                            right: right_coor,
                         }
                     );
                 }
                 fix_area_assist_points.push(
                     AreaAssistPoint{
-                        assist_points: fix_assist_points.clone()
+                        assist_points: fix_assist_points
                     }
                 );
+                org_area_assist_points.push(
+                    AreaAssistPoint{
+                        assist_points: org_assist_points
+                    }
+                );
+            }
+            
+            for fix_area_assist_point in fix_area_assist_points.iter_mut(){
+                let mut fix_left_coors = Vec::new();
+                let mut fix_right_coors = Vec::new();
+                for assist_point in fix_area_assist_point.assist_points.iter_mut(){
+                    fix_left_coors.push(&mut assist_point.left);
+                    fix_right_coors.push(&mut assist_point.right);
+                }
+                fix_coordinates_by_search_nearby_retry(
+                    &img_and_model_points.img, &mut fix_left_coors,
+                    CONFIG.image_baizheng.area_assist_point_nearby_length,
+                    CONFIG.image_baizheng.area_assist_point_nearby_retry
+                );
+                fix_coordinates_by_search_nearby_retry(
+                    &img_and_model_points.img, &mut fix_right_coors,
+                    CONFIG.image_baizheng.area_assist_point_nearby_length,
+                    CONFIG.image_baizheng.area_assist_point_nearby_retry
+                );
+                for fix_assist_point in fix_area_assist_point.assist_points.iter_mut(){
+                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_assist_point.left, CONFIG.image_baizheng.assist_point_nearby_length);
+                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_assist_point.right, CONFIG.image_baizheng.assist_point_nearby_length);
+                    fix_coordinate(&img_and_model_points.img, &mut fix_assist_point.left, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
+                    fix_coordinate(&img_and_model_points.img, &mut fix_assist_point.right, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
+                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_assist_point.left, CONFIG.image_baizheng.assist_point_nearby_length);
+                    fix_coordinate_by_search_nearby(&img_and_model_points.img, &mut fix_assist_point.right, CONFIG.image_baizheng.assist_point_nearby_length);
+                    fix_coordinate(&img_and_model_points.img, &mut fix_assist_point.left, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
+                    fix_coordinate(&img_and_model_points.img, &mut fix_assist_point.right, CONFIG.image_baizheng.assist_point_scan_range, CONFIG.image_baizheng.assist_point_min_distance, CONFIG.image_baizheng.assist_point_max_distance);
+                }
+            }
+            for (area_assist_point, (org_area_assist_point, fix_area_assist_point)) in area_assist_points.iter().zip(org_area_assist_points.iter().zip(fix_area_assist_points.iter())){
+                for (assist_point, (org_assist_point,fix_assist_point)) in area_assist_point.assist_points.iter().zip(org_area_assist_point.assist_points.iter().zip(fix_area_assist_point.assist_points.iter())){
+                    let move_op = generate_move_op([org_assist_point.left,org_assist_point.right], [fix_assist_point.left, fix_assist_point.right]);
+                    move_hash.insert(assist_point.left.y, move_op);
+                }
             }
             out_page.area_assist_points = Some(fix_area_assist_points);
         }
@@ -361,7 +402,7 @@ impl Baizheng for Engine {
             };
             let page_number_points = &page.page_number_points;
             for point in page_number_points.iter(){
-                let coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.coordinate);
+                let coor = generate_real_coordinate_with_model_points(&reference_model_points, &point.coordinate, true, None);
                 draw_filled_rect_mut(
                     &mut rendering,
                     Rect::at(coor.x, coor.y).of_size(coor.w as u32, coor.h as u32),
@@ -680,6 +721,44 @@ fn fix_coordinate_by_search_nearby(img: &ProcessedImages, coordinate: &mut Coord
     coordinate.y += direction.1 * nearby_length;
 }
 
+fn fix_coordinates_by_search_nearby(img: &ProcessedImages, coordinates: &mut Vec<&mut Coordinate>, nearby_length: i32){
+    if coordinates.len() == 0 {
+        return
+    }
+    let mut mean_pix = 255;
+    let mut index_i = 0;
+    let mut index_j = 0;
+    for i in -nearby_length..nearby_length{
+        if i%CONFIG.image_baizheng.area_assist_point_nearby_step != 0 {continue}
+        for j in -nearby_length..nearby_length{
+            if j%CONFIG.image_baizheng.area_assist_point_nearby_step != 0 {continue}
+            let mut _sum_mean = 0;
+            for coordinate in coordinates.iter() {
+                _sum_mean += sum_image_pixels(
+                    &img.integral_gray,
+                    (coordinate.x + i) as u32,
+                    (coordinate.y + j) as u32,
+                    (coordinate.x + i + coordinate.w - 1) as u32,
+                    (coordinate.y + j + coordinate.h - 1) as u32
+                )[0] as i32 / (coordinate.w * coordinate.h);
+            }
+            let _mean_pix = _sum_mean / coordinates.len() as i32;
+            if _mean_pix < mean_pix{index_i = i;index_j = j;mean_pix = _mean_pix;}
+        }
+    }
+    for coordinate in coordinates.iter_mut() {
+        coordinate.x += index_i;
+        coordinate.y += index_j;
+    }
+    
+}
+
+fn fix_coordinates_by_search_nearby_retry(img: &ProcessedImages, coordinates: &mut Vec<&mut Coordinate>, nearby_length: i32, retry: u8){
+    for _ in 0u8..retry{
+        fix_coordinates_by_search_nearby(img, coordinates, nearby_length);
+    }
+}
+
 /// 输入的图片已经是经过小角度摆正+90度摆正的图片
 /// 该函数根据页面点的向量距离对page和image进行匹配
 /// 匹配成功的img直接进行180大角度摆正
@@ -777,7 +856,8 @@ fn calculate_page_img_diff(
     for page_number in page_number_points{
         let real_coordinate = generate_real_coordinate_with_model_points(
             reference_model_points,
-            &page_number.coordinate
+            &page_number.coordinate,
+            true, None
         );
         page_number_fill_rates.push(page_number.fill_rate);
         real_page_number_coordinates.push(real_coordinate);

@@ -95,7 +95,7 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
         for (rec, rec_out) in page.recognizes.iter().zip(page_out.recognizes.iter_mut()){
             for (option, option_out) in rec.options.iter().zip(rec_out.rec_options.iter_mut()) {
                 let mut real_coordinate = generate_real_coordinate_with_model_points(
-                    &reference_model_points, &option.coordinate
+                    &reference_model_points, &option.coordinate, true, None
                 );
                 fix_coordinate_use_assist_points(&mut real_coordinate, &page_out.assist_points_move_op.get(&option.coordinate.y));
                 let mut res:Option<Value> = None;

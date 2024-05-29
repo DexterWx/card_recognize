@@ -31,8 +31,13 @@ image_baizheng:
   model_point_min_distance: 6
   model_point_max_distance: 60
   assist_point_nearby_length: 4
+  area_assist_point_nearby_length: 17
+  area_assist_point_nearby_step: 4
+  area_assist_point_nearby_retry: 2
   valid_coordinates4_cosine_similarity: 0.996
   valid_coordinates_wh_sum_mean_dis: 8.0
+location:
+  select_model_point_cal_real_coor_y_boundary: 0.7
 image_blackfill:
   neighborhood_size: 5
   image_type: 0
