@@ -44,8 +44,17 @@ pub struct ImageBaizheng {
     pub model_point_min_distance: i32,
     pub model_point_max_distance: i32,
     pub assist_point_nearby_length: i32,
+    pub area_assist_point_nearby_length: i32,
+    pub area_assist_point_nearby_step: i32,
+    pub area_assist_point_nearby_retry: u8,
     pub valid_coordinates4_cosine_similarity: f32,
     pub valid_coordinates_wh_sum_mean_dis: f32
+}
+
+/// 定位真实框参数
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Location {
+    pub select_model_point_cal_real_coor_y_boundary: f32
 }
 
 /// 判断填涂比参数
@@ -76,6 +85,7 @@ pub struct Config {
     pub image_baizheng: ImageBaizheng,
     pub image_blackfill: ImageBlackFill,
     pub recognize_type: RecognitionType,
+    pub location: Location
     // 其他配置参数
 }
 
@@ -117,8 +127,15 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
         model_point_min_distance: 6,
         model_point_max_distance: 60,
         assist_point_nearby_length: 4,
+        area_assist_point_nearby_length: 17,
+        area_assist_point_nearby_step: 4,
+        area_assist_point_nearby_retry: 2,
         valid_coordinates4_cosine_similarity: 0.996,
         valid_coordinates_wh_sum_mean_dis: 8.0
+    };
+
+    let location = Location {
+        select_model_point_cal_real_coor_y_boundary: 0.7
     };
     
     let image_blackfill = ImageBlackFill {
@@ -143,6 +160,7 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
         image_baizheng,
         image_blackfill,
         recognize_type,
+        location,
         // 其他配置参数
     }
 });

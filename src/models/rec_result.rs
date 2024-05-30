@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
-use super::{card::MyPoint, scan_json::{AssistPoint, Coordinate, InputScan, InputSecond}};
+use super::{card::MyPoint, scan_json::{AreaAssistPoint, Coordinate, InputScan, InputSecond}};
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,7 +31,7 @@ pub struct Page{
     pub image_source: Option<String>,
     pub image_rotated: Option<String>,
     pub image_rendering: Option<String>,
-    pub assist_points: Option<Vec<AssistPoint>>,
+    pub area_assist_points: Option<Vec<AreaAssistPoint>>,
     pub assist_points_move_op: HashMap<i32, MoveOperation>,
     pub recognizes: Vec<Recognize>
 }
@@ -85,7 +85,7 @@ impl OutputRec{
                     image_source: None,
                     image_rendering: None,
                     image_rotated: None,
-                    assist_points: None,
+                    area_assist_points: None,
                     assist_points_move_op: HashMap::new(),
                     recognizes: page.recognizes.iter().map(|rec| {
                         Recognize {
