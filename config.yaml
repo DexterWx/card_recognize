@@ -51,3 +51,5 @@ recognize_type:
   qrcode: 4
   barcode: 5
   coordinate: 6
+  single_select: 7
+  multi_select: 8
