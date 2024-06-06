@@ -149,6 +149,12 @@ fn _recognize_second(input: &InputSecond, output: &mut OutputRecSecond) {
                     rec_type if rec_type==CONFIG.recognize_type.black_fill => {
                         res = Engine::rec_black_fill(&img, real_coordinate);
                     }
+                    rec_type if rec_type==CONFIG.recognize_type.single_select => {
+                        res = Engine::rec_black_fill(&img, &real_coordinate);
+                    }
+                    rec_type if rec_type==CONFIG.recognize_type.multi_select => {
+                        res = Engine::rec_black_fill(&img, &real_coordinate);
+                    }
                     rec_type if rec_type==CONFIG.recognize_type.vx => {
                         res = Engine::rec_vx(&img, real_coordinate);
                     }
