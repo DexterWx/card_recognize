@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use anyhow::{Result, Ok};
+use anyhow::{Result, Ok, anyhow};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
 use imageproc::contrast::threshold;
 use imageproc::distance_transform::Norm;
@@ -267,30 +267,77 @@ pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> R
     
     let rgb_img = img.to_rgb8();
     let gray_img = img.to_luma8();
-    // 对灰度图像进行高斯模糊
+    // 对灰度图像进行高斯模糊，为寻找定位点准备的灰度图
     let blurred_img = gaussian_blur_f32(&gray_img, CONFIG.image_process.gaussian_blur_sigma);
-    // 对模糊后的图像进行二值化
-    let blurred_img_bi = threshold(&blurred_img, CONFIG.image_process.retry_args[0].binarization_threshold);
+    // 为了填图准备的灰度图，和定位点参数区分开
+    // let _blurred_img_for_fill: ImageBuffer<Luma<u8>, Vec<u8>> = gaussian_blur_f32(&gray_img, CONFIG.image_process.fill_args.gaussian_blur_sigma);
+    let _blurred_img_for_fill = gray_img;
+    let thre = calculate_binarization_threshold(&_blurred_img_for_fill)?;
+    println!("thre: {thre:?}");
+    let path = format!("dev/test_data/gau.jpg");
+    _blurred_img_for_fill.save(path);
+    let _diff = 255- thre;
     
+    // 对模糊后的图像进行二值化，为填图准备的二值图
+    let blurred_img_bi = threshold(&_blurred_img_for_fill, CONFIG.image_process.fill_args.binarization_threshold+_diff);
+
+    let path = format!("dev/test_data/blur.jpg");
+    blurred_img_bi.save(path);
     // 生成形态学图的可调节参数
     let _process_args = &CONFIG.image_process.retry_args[0];
     // 形态学变换图
     let mor_img = generate_mophology_from_blur(&blurred_img, _process_args);
 
-    let integral_gray:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&blurred_img_bi);
-    let integral_morphology:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&mor_img);
-
-    // let path = format!("dev/test_data/blur.jpg");
-    // blurred_img_bi.save(path);
+    let integral_gray: ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&blurred_img_bi);
+    let integral_morphology: ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&mor_img);
 
     Ok(ProcessedImages{
         org: Some(base64_image.clone()),
         rgb: rgb_img,
         blur: blurred_img,
+        blur_bi: blurred_img_bi,
         morphology: mor_img,
         integral_gray: integral_gray,
         integral_morphology: integral_morphology,
     })
+}
+
+pub fn calculate_binarization_threshold(img: &ImageBuffer<Luma<u8>, Vec<u8>>) -> Result<u8>{
+    let integral:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&img);
+    let mut averages = Vec::new();
+    
+    let width = img.width() as i64;
+    let height = img.height() as i64;
+
+    let box_size = 200;
+    let step_size = 200;
+
+    for y in (0..height).step_by(step_size as usize) {
+        for x in (0..width).step_by(step_size as usize) {
+            let right = (x + box_size).min(width - 1);
+            let bottom = (y + box_size).min(height - 1);
+            let sum = sum_image_pixels(
+                &integral,
+                x as u32,
+                y as u32,
+                right as u32,
+                bottom as u32
+            )[0];
+            let num_pixels = (right - x + 1) * (bottom - y + 1);
+            let avg = sum / num_pixels;
+            averages.push(avg);
+        }
+    }
+
+    if averages.len() < 10 {
+        return Err(anyhow!("Not enough boxes (less than 10) to calculate the threshold."));
+    }
+
+    averages.sort_unstable_by(|a, b| b.cmp(a));
+    let top_10_avg: i64 = averages.iter().take(10).sum();
+    let final_avg = (top_10_avg / 10) as u8;
+
+    Ok(final_avg)
 }
 
 pub fn generate_mophology_from_blur(blurred_img: &ImageBuffer<Luma<u8>, Vec<u8>>, image_process_args: &ProcessedImagesArgs) -> ImageBuffer<Luma<u8>, Vec<u8>>{
@@ -308,10 +355,11 @@ pub fn generate_mophology_from_blur(blurred_img: &ImageBuffer<Luma<u8>, Vec<u8>>
 /// 旋转ProcessedImages
 pub fn rotate_processed_image(img: &mut ProcessedImages, center: &MyPoint, angle_radians: f32){
     let center = (center.x as f32, center.y as f32);
+    // 灰度图不需要旋转，只在定位点阶段使用。
     img.rgb = rotate(&img.rgb, center, angle_radians, Interpolation::Bilinear, Rgb([255,255,255]));
-    img.blur = rotate(&img.blur, center, angle_radians, Interpolation::Bilinear, Luma([255]));
+    img.blur_bi = rotate(&img.blur_bi, center, angle_radians, Interpolation::Bilinear, Luma([255]));
     img.morphology = rotate(&img.morphology, center, angle_radians, Interpolation::Bilinear, Luma([255]));
-    img.integral_gray = integral_image(&img.blur);
+    img.integral_gray = integral_image(&img.blur_bi);
     img.integral_morphology = integral_image(&img.morphology);
 }
 

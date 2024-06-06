@@ -30,7 +30,7 @@ mod tests {
     fn test_demo() -> Result<()> {
 
         // 直接修改id就可以测试
-        let test_id = "197864";
+        let test_id = "167055";
         let json_path = format!("dev/test_data/cards/{test_id}/scan.json");
         let image_dir = format!("dev/test_data/cards/{test_id}/images");
 
@@ -44,7 +44,7 @@ mod tests {
         let (output, _imgs_and_model_points) = engine.recognize(&input_images);
 
 
-        let out_json_path = format!("dev/test_data/{test_id}.json");
+        let out_json_path = format!("dev/test_data/out_json/{test_id}.json");
         let mut file = File::create(out_json_path)?;
         serde_json::to_writer(&mut file, &output)?;
 

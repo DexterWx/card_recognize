@@ -7,8 +7,16 @@ use std::io::BufReader;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImageProcess {
     pub gaussian_blur_sigma: f32,
+    pub binarization_threshold: u8,
     pub retry_args: [ProcessedImagesArgs;5],
-    pub empty_image_threshold: f64
+    pub empty_image_threshold: f64,
+    pub fill_args: FillArgs,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct FillArgs{
+    pub binarization_threshold: u8,
+    pub gaussian_blur_sigma: f32
 }
 /// 需要多次尝试的参数
 #[derive(Debug, Deserialize, Serialize)]
@@ -105,6 +113,7 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
 pub static CONFIG: Lazy<Config> = Lazy::new(|| {
     let image_process = ImageProcess {
         gaussian_blur_sigma: 1.0,
+        binarization_threshold: 172,
         empty_image_threshold: 254.5,
         retry_args: [
             ProcessedImagesArgs::new(172, 1, 5),
@@ -113,6 +122,10 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
             ProcessedImagesArgs::new(172, 3, 6),
             ProcessedImagesArgs::new(172, 0, 6),
         ],
+        fill_args: FillArgs{
+            gaussian_blur_sigma: 3.5,
+            binarization_threshold: 178
+        }
     };
     
     let image_baizheng = ImageBaizheng {
