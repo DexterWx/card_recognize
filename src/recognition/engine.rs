@@ -103,6 +103,12 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                     rec_type if rec_type==CONFIG.recognize_type.black_fill => {
                         res = Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate);
                     }
+                    rec_type if rec_type==CONFIG.recognize_type.single_select => {
+                        res = Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate);
+                    }
+                    rec_type if rec_type==CONFIG.recognize_type.multi_select => {
+                        res = Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate);
+                    }
                     rec_type if rec_type==CONFIG.recognize_type.vx => {
                         res = Engine::rec_vx(&img_and_model_points.img, &real_coordinate);
                     }

@@ -75,7 +75,9 @@ pub struct RecognitionType {
     pub black_fill: u8,
     pub number: u8,
     pub vx: u8,
-    pub qrcode: u8
+    pub qrcode: u8,
+    pub single_select: u8,
+    pub multi_select: u8,
 }
 
 /// 配置参数
@@ -153,6 +155,8 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
         number: 3,
         vx: 2,
         qrcode: 4,
+        single_select: 7,
+        multi_select: 8,
     };
 
     Config {
