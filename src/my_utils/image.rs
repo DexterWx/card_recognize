@@ -272,14 +272,12 @@ pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> R
     // 为了填图准备的灰度图，和定位点参数区分开
     // let _blurred_img_for_fill: ImageBuffer<Luma<u8>, Vec<u8>> = gaussian_blur_f32(&gray_img, CONFIG.image_process.fill_args.gaussian_blur_sigma);
     let _blurred_img_for_fill = gray_img;
-    let thre = calculate_binarization_threshold(&_blurred_img_for_fill)?;
-    println!("thre: {thre:?}");
+
     let path = format!("dev/test_data/gau.jpg");
     _blurred_img_for_fill.save(path);
-    let _diff = 255- thre;
     
     // 对模糊后的图像进行二值化，为填图准备的二值图
-    let blurred_img_bi = threshold(&_blurred_img_for_fill, CONFIG.image_process.fill_args.binarization_threshold+_diff);
+    let blurred_img_bi = threshold(&_blurred_img_for_fill, CONFIG.image_process.fill_args.binarization_threshold);
 
     let path = format!("dev/test_data/blur.jpg");
     blurred_img_bi.save(path);
