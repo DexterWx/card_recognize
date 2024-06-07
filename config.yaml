@@ -3,7 +3,7 @@ image_process:
   empty_image_threshold: 254.5
   binarization_threshold: 172
   fill_args:
-    gaussian_blur_sigma: 0.4
+    gaussian_blur_sigma: 2.5
     binarization_threshold: 172
   retry_args:
     - binarization_threshold: 172
@@ -35,8 +35,8 @@ image_baizheng:
   model_point_min_distance: 6
   model_point_max_distance: 60
   assist_point_nearby_length: 4
-  area_assist_point_nearby_length: 17
-  area_assist_point_nearby_step: 4
+  area_assist_point_nearby_length: 22
+  area_assist_point_nearby_step: 3
   area_assist_point_nearby_retry: 2
   valid_coordinates4_cosine_similarity: 0.996
   valid_coordinates_wh_sum_mean_dis: 8.0

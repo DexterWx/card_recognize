@@ -13,6 +13,7 @@ use imageproc::contours::Contour;
 use imageproc::drawing::draw_filled_circle_mut;
 use imageproc::drawing::draw_filled_rect_mut;
 
+use imageproc::integral_image::integral_image;
 use imageproc::integral_image::sum_image_pixels;
 use imageproc::rect::Rect;
 
@@ -103,6 +104,26 @@ impl Baizheng for Engine {
                     output.images.push(image_status);
                 }
             };
+        }
+
+        for img_and_model_point in imgs_and_model_points.iter(){
+            let img = &img_and_model_point.img;
+            let gray:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&img.blur);
+            let coors = img_and_model_point.real_model_points;
+            let mut _pix = 0;
+            for coor in coors.iter(){
+                let sum_pix = sum_image_pixels(
+                    &gray,
+                    (coor.x+3) as u32,
+                    (coor.y+3) as u32,
+                    (coor.x+coor.w-1-3) as u32,
+                    (coor.y+coor.h-1-3) as u32,
+                )[0];
+                let mean_pix = sum_pix / ((coor.w-6)*(coor.h-6)) as i64;
+                _pix += mean_pix;
+            }
+            _pix /= 4;
+            println!("_pix: {_pix:?}");
         }
 
         // 初始化匹配成功的标记

@@ -270,8 +270,8 @@ pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> R
     // 对灰度图像进行高斯模糊，为寻找定位点准备的灰度图
     let blurred_img = gaussian_blur_f32(&gray_img, CONFIG.image_process.gaussian_blur_sigma);
     // 为了填图准备的灰度图，和定位点参数区分开
-    // let _blurred_img_for_fill: ImageBuffer<Luma<u8>, Vec<u8>> = gaussian_blur_f32(&gray_img, CONFIG.image_process.fill_args.gaussian_blur_sigma);
-    let _blurred_img_for_fill = gray_img;
+    let _blurred_img_for_fill: ImageBuffer<Luma<u8>, Vec<u8>> = gaussian_blur_f32(&gray_img, CONFIG.image_process.fill_args.gaussian_blur_sigma);
+    // let _blurred_img_for_fill = gray_img;
 
     let path = format!("dev/test_data/gau.jpg");
     _blurred_img_for_fill.save(path);

@@ -47,7 +47,7 @@ impl RecBlackFill for Engine {
             let rendering = rendering.unwrap();
             let mut rendering = rendering.to_rgb8();
             for recognize in &page.recognizes {
-                if recognize.rec_type == CONFIG.recognize_type.black_fill {
+                if recognize.rec_type == CONFIG.recognize_type.black_fill || recognize.rec_type == CONFIG.recognize_type.multi_select ||recognize.rec_type == CONFIG.recognize_type.single_select{
                     let mut max_filled_ratio_index = None;
                     let mut max_filled_ratio_value = None;
                     for (_index, rec_option) in recognize.rec_options.iter().enumerate() {
@@ -93,7 +93,7 @@ impl RecBlackFill for Engine {
             let mut img = trans_base64_to_image(page.image_rendering.as_ref().unwrap()).unwrap().to_rgb8();
 
             for rec in page.recognizes.iter(){
-                if rec.rec_type != CONFIG.recognize_type.black_fill{continue}
+                if rec.rec_type != CONFIG.recognize_type.black_fill && rec.rec_type != CONFIG.recognize_type.multi_select && rec.rec_type != CONFIG.recognize_type.single_select{continue}
                 for option in rec.rec_options.iter(){
                     let rate = option.value.as_ref().unwrap();
                     let coor = option.coordinate.as_ref().unwrap();
