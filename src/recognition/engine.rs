@@ -42,6 +42,10 @@ impl Engine {
         self.set_assist_points(&imgs_and_model_points, &mut output);
         // 识别
         _recognize(self, &imgs_and_model_points, &mut output);
+        // 二值化填涂率
+        Engine::binary_fill_rate(&mut output);
+        
+        
 
         // 渲染
         #[cfg(debug_assertions)]
@@ -126,7 +130,8 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
                     }
                     _ =>{}
                 }
-                option_out.value = res;
+                option_out.value = res.clone();
+                option_out._value = res;
                 #[cfg(debug_assertions)]
                 {
                     option_out.coordinate = Some(real_coordinate);

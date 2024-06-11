@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use anyhow::{Result, Ok, anyhow};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
-use imageproc::contrast::threshold;
+use imageproc::contrast::{otsu_level, threshold};
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate, Interpolation};
 use imageproc::morphology::{dilate, erode};
@@ -273,14 +273,21 @@ pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> R
     let _blurred_img_for_fill: ImageBuffer<Luma<u8>, Vec<u8>> = gaussian_blur_f32(&gray_img, CONFIG.image_process.fill_args.gaussian_blur_sigma);
     // let _blurred_img_for_fill = gray_img;
 
-    let path = format!("dev/test_data/gau.jpg");
-    _blurred_img_for_fill.save(path);
+    // let path = format!("dev/test_data/gau.jpg");
+    // _blurred_img_for_fill.save(path);
     
     // 对模糊后的图像进行二值化，为填图准备的二值图
-    let blurred_img_bi = threshold(&_blurred_img_for_fill, CONFIG.image_process.fill_args.binarization_threshold);
+    let otsu = otsu_level(&_blurred_img_for_fill);
+    #[cfg(debug_assertions)]
+    {
+        println!("otsu: {otsu:?}");
+    }
+    let threshold_level = otsu.min(CONFIG.image_process.fill_args.binarization_threshold_max);
+    let blurred_img_bi = threshold(&_blurred_img_for_fill, threshold_level);
 
-    let path = format!("dev/test_data/blur.jpg");
-    blurred_img_bi.save(path);
+    // let path = format!("dev/test_data/blur.jpg");
+    // blurred_img_bi.save(path);
+
     // 生成形态学图的可调节参数
     let _process_args = &CONFIG.image_process.retry_args[0];
     // 形态学变换图
