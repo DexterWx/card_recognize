@@ -1,4 +1,6 @@
 use crate::config::CONFIG;
+use crate::models::rec_result::RecOption;
+use crate::my_utils::math::get_otsu;
 use crate::{models::{engine_rec::ProcessedImages, rec_result::{OutputRec, Value}, scan_json::Coordinate}, recognition::engine::Engine};
 use crate::my_utils::image::*;
 use image::{ImageBuffer, Luma};
@@ -11,11 +13,25 @@ use ab_glyph::FontArc;
 pub trait RecBlackFill {
     /// 填涂识别
     fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
+    fn binary_fill_rate(output: &mut OutputRec);
     fn rendering_black_fill(output: &mut OutputRec);
     fn rendering_black_fill_show_rate(output: &mut OutputRec);
 }
 
 impl RecBlackFill for Engine {
+    fn binary_fill_rate(output: &mut OutputRec) {
+        for page in output.pages.iter_mut(){
+            if !page.has_page {continue}
+            for rec in page.recognizes.iter_mut(){
+                if rec.rec_type==CONFIG.recognize_type.single_select {
+                    set_single_fill_rate(&mut rec.rec_options);
+                }
+                if rec.rec_type==CONFIG.recognize_type.multi_select {
+                    set_multi_fill_rate(&mut rec.rec_options)
+                }
+            }
+        }
+    }
     fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value> {
         let rect = Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32);
         let integral_image;
@@ -48,31 +64,15 @@ impl RecBlackFill for Engine {
             let mut rendering = rendering.to_rgb8();
             for recognize in &page.recognizes {
                 if recognize.rec_type == CONFIG.recognize_type.black_fill || recognize.rec_type == CONFIG.recognize_type.multi_select ||recognize.rec_type == CONFIG.recognize_type.single_select{
-                    let mut max_filled_ratio_index = None;
-                    let mut max_filled_ratio_value = None;
                     for (_index, rec_option) in recognize.rec_options.iter().enumerate() {
                         if let Some(Value::Float(value)) = rec_option.value {
-                            if max_filled_ratio_value.map_or(true, |max_value| value > max_value) {
-                                max_filled_ratio_index = Some(_index);
-                                max_filled_ratio_value = Some(value);
-                            }
-                        }
-                    }
-                    // 填涂比rec_options中最大，且大于阈值min_filled_ratio的区域
-                    if let Some(max_value) = max_filled_ratio_value {
-                        if max_value as f32 > CONFIG.image_blackfill.min_filled_ratio {
-                            let max_index = max_filled_ratio_index.expect("No max_filled_ratio_index provided");
-                            // #[cfg(debug_assertions)]
-                            // {
-                            //     println!("===选项组最大填涂比{:?}===", recognize.rec_options[max_index].value);
-                            // }
-                            if let Some(coordinate) = recognize.rec_options[max_index].coordinate {
-                                draw_filled_rect_mut(
-                                    &mut rendering,
-                                    Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32),
-                                    Rgb([255u8, 0u8, 0u8]),
-                                );
-                            }
+                            if value != 1f32 {continue}
+                            let coordinate = rec_option.coordinate.unwrap();
+                            draw_filled_rect_mut(
+                                &mut rendering,
+                                Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32),
+                                Rgb([255u8, 0u8, 0u8]),
+                            );
                         }
                     }
                 }
@@ -95,7 +95,7 @@ impl RecBlackFill for Engine {
             for rec in page.recognizes.iter(){
                 if rec.rec_type != CONFIG.recognize_type.black_fill && rec.rec_type != CONFIG.recognize_type.multi_select && rec.rec_type != CONFIG.recognize_type.single_select{continue}
                 for option in rec.rec_options.iter(){
-                    let rate = option.value.as_ref().unwrap();
+                    let rate = option._value.as_ref().unwrap();
                     let coor = option.coordinate.as_ref().unwrap();
                     draw_text_mut(
                         &mut img, color,
@@ -148,4 +148,49 @@ fn find_max_fillrate_in_neighborhood(integral_image: &ImageBuffer<Luma<i64>, Vec
         }
     }
     return new_fillrate;
+}
+
+fn set_single_fill_rate(options: &mut Vec<RecOption>){
+
+    if options.len() == 0 {return}
+    let fill_rates_u8 = get_array_values_for_otsu(options);
+    let best_threshold = get_otsu(&fill_rates_u8);
+    println!("{fill_rates_u8:?}  {best_threshold:?}");
+    set_filled_use_threshold(options, best_threshold);
+
+}
+
+
+
+fn set_multi_fill_rate(options: &mut Vec<RecOption>){
+
+    if options.len() == 0 {return}
+    let fill_rates_u8 = get_array_values_for_otsu(options);
+    let best_threshold = get_otsu(&fill_rates_u8);
+    println!("{fill_rates_u8:?}  {best_threshold:?}");
+    set_filled_use_threshold(options, best_threshold);
+    
+}
+
+fn get_array_values_for_otsu(options: &Vec<RecOption>) -> Vec<u8>{
+    let mut array = Vec::new();
+    for option in options.iter(){
+        let value = option.value.as_ref().unwrap().to_float().unwrap();
+        let mut _value = value.min(1f32).max(0f32) as u32;
+        array.push((value * 100f32) as u8);
+    }
+    array
+}
+
+fn set_filled_use_threshold(options: &mut Vec<RecOption>, threshold: u8){
+    for option in options.iter_mut(){
+        let value = option.value.as_ref().unwrap().to_float().unwrap();
+        let value = (value * 100f32) as u8;
+        if value > threshold {
+            option.value = Some(Value::Float(1f32));
+        }
+        else {
+            option.value = Some(Value::Float(0f32));
+        }
+    }
 }

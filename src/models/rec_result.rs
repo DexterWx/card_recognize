@@ -55,7 +55,8 @@ pub struct Recognize{
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RecOption{
     pub value: Option<Value>,
-    pub coordinate: Option<Coordinate>
+    pub coordinate: Option<Coordinate>,
+    pub _value: Option<Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,12 +65,41 @@ pub struct PageSize{
     pub h: i32
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)] // Allows using multiple types for the enum variants
 pub enum Value {
     String(String),
     Integer(i32),
     Float(f32),
+}
+
+
+
+
+impl Value {
+    pub fn to_float(&self) -> Option<f32> {
+        match self {
+            Value::String(_) => None,
+            Value::Integer(_) => None, // Return None if it's an Integer
+            Value::Float(f) => Some(*f),
+        }
+    }
+
+    pub fn to_i32(&self) -> Option<i32> {
+        match self {
+            Value::String(_) => None,
+            Value::Integer(i) => Some(*i),
+            Value::Float(_) => None, // Return None if it's a Float
+        }
+    }
+
+    pub fn to_string(&self) -> Option<String> {
+        match self {
+            Value::String(s) => Some(s.clone()),
+            Value::Integer(_) => None, // Return None if it's an Integer
+            Value::Float(_) => None, // Return None if it's a Float
+        }
+    }
 }
 
 impl OutputRec{
@@ -94,7 +124,8 @@ impl OutputRec{
                             rec_options: rec.options.iter().map(|_|{
                                 RecOption{
                                     value: None,
-                                    coordinate: None
+                                    coordinate: None,
+                                    _value: None
                                 }
                             }).collect()
                         }
@@ -132,7 +163,8 @@ impl OutputRecSecond{
                             rec_options: rec.options.iter().map(|_|{
                                 RecOption{
                                     value: None,
-                                    coordinate: None
+                                    coordinate: None,
+                                    _value: None
                                 }
                             }).collect()
                         }

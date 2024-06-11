@@ -7,7 +7,6 @@ use std::io::BufReader;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImageProcess {
     pub gaussian_blur_sigma: f32,
-    pub binarization_threshold: u8,
     pub retry_args: [ProcessedImagesArgs;5],
     pub empty_image_threshold: f64,
     pub fill_args: FillArgs,
@@ -15,7 +14,7 @@ pub struct ImageProcess {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct FillArgs{
-    pub binarization_threshold: u8,
+    pub binarization_threshold_max: u8,
     pub gaussian_blur_sigma: f32
 }
 /// 需要多次尝试的参数
@@ -113,7 +112,6 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
 pub static CONFIG: Lazy<Config> = Lazy::new(|| {
     let image_process = ImageProcess {
         gaussian_blur_sigma: 1.0,
-        binarization_threshold: 172,
         empty_image_threshold: 254.5,
         retry_args: [
             ProcessedImagesArgs::new(172, 1, 5),
@@ -123,8 +121,8 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
             ProcessedImagesArgs::new(172, 0, 6),
         ],
         fill_args: FillArgs{
-            gaussian_blur_sigma: 3.5,
-            binarization_threshold: 178
+            gaussian_blur_sigma: 2.5,
+            binarization_threshold_max: 190
         }
     };
     
@@ -142,8 +140,8 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
         model_point_min_distance: 6,
         model_point_max_distance: 60,
         assist_point_nearby_length: 4,
-        area_assist_point_nearby_length: 17,
-        area_assist_point_nearby_step: 4,
+        area_assist_point_nearby_length: 22,
+        area_assist_point_nearby_step: 3,
         area_assist_point_nearby_retry: 2,
         valid_coordinates4_cosine_similarity: 0.996,
         valid_coordinates_wh_sum_mean_dis: 8.0
