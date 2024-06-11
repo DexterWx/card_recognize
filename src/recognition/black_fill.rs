@@ -1,7 +1,8 @@
 use crate::config::CONFIG;
 use crate::models::rec_result::RecOption;
+use crate::models::scan_json::Value;
 use crate::my_utils::math::get_otsu;
-use crate::{models::{engine_rec::ProcessedImages, rec_result::{OutputRec, Value}, scan_json::Coordinate}, recognition::engine::Engine};
+use crate::{models::{engine_rec::ProcessedImages, rec_result::OutputRec, scan_json::Coordinate}, recognition::engine::Engine};
 use crate::my_utils::image::*;
 use image::{ImageBuffer, Luma};
 use image::Rgb;
@@ -12,7 +13,7 @@ use ab_glyph::FontArc;
 
 pub trait RecBlackFill {
     /// 填涂识别
-    fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value>;
+    fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate, value: &Option<Value>) -> Option<Value>;
     fn binary_fill_rate(output: &mut OutputRec);
     fn rendering_black_fill(output: &mut OutputRec);
     fn rendering_black_fill_show_rate(output: &mut OutputRec);
@@ -32,7 +33,7 @@ impl RecBlackFill for Engine {
             }
         }
     }
-    fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate) -> Option<Value> {
+    fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate, value: &Option<Value>) -> Option<Value> {
         let rect = Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32);
         let integral_image;
         if CONFIG.image_blackfill.image_type == 0 {
@@ -43,12 +44,14 @@ impl RecBlackFill for Engine {
         //计算摆正后原始区域填涂率
         let filled_ratio = calculate_fill_ratio(integral_image, rect);
         //计算制定区域最大值，默认搜索5*5范围内最大
-        let neighborhood_radio = find_max_fillrate_in_neighborhood(integral_image, coordinate, filled_ratio);
-        // #[cfg(debug_assertions)]
-        // {
-        //     println!("==={:?}所在区域填涂比{},5*5区域最值大{}===", coordinate, filled_ratio, neighborhood_radio);
-        // }
-        return Some(Value::Float(neighborhood_radio));
+        let mut filled_ratio = find_max_fillrate_in_neighborhood(integral_image, coordinate, filled_ratio);
+        //调整不同选项的选项的基础阈值，微调填涂率
+        if !value.is_none(){
+            filled_ratio = finetune_rate(filled_ratio, value.as_ref().unwrap());
+        }
+
+        filled_ratio = filled_ratio.min(1f32).max(0f32);  
+        return Some(Value::Float(filled_ratio));
     }
 
     fn rendering_black_fill(output: &mut OutputRec) {
@@ -154,8 +157,15 @@ fn set_single_fill_rate(options: &mut Vec<RecOption>){
 
     if options.len() == 0 {return}
     let fill_rates_u8 = get_array_values_for_otsu(options);
-    let best_threshold = get_otsu(&fill_rates_u8);
-    println!("{fill_rates_u8:?}  {best_threshold:?}");
+    let mut best_threshold = get_otsu(&fill_rates_u8);
+    if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() < CONFIG.image_process.fill_args.fill_same_min_max_diff{
+        if *fill_rates_u8.iter().max().unwrap() >= CONFIG.image_process.fill_args.fill_same_max {best_threshold = 0}
+        else {best_threshold = 100}
+    }
+    #[cfg(debug_assertions)]
+    {
+        println!("{fill_rates_u8:?}  {best_threshold:?}");
+    }
     set_filled_use_threshold(options, best_threshold);
 
 }
@@ -166,8 +176,15 @@ fn set_multi_fill_rate(options: &mut Vec<RecOption>){
 
     if options.len() == 0 {return}
     let fill_rates_u8 = get_array_values_for_otsu(options);
-    let best_threshold = get_otsu(&fill_rates_u8);
-    println!("{fill_rates_u8:?}  {best_threshold:?}");
+    let mut best_threshold = get_otsu(&fill_rates_u8);
+    if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() < CONFIG.image_process.fill_args.fill_same_min_max_diff{
+        if *fill_rates_u8.iter().max().unwrap() >= CONFIG.image_process.fill_args.fill_same_max {best_threshold = 0}
+        else {best_threshold = 100}
+    }
+    #[cfg(debug_assertions)]
+    {
+        println!("{fill_rates_u8:?}  {best_threshold:?}");
+    }
     set_filled_use_threshold(options, best_threshold);
     
 }
@@ -193,4 +210,24 @@ fn set_filled_use_threshold(options: &mut Vec<RecOption>, threshold: u8){
             option.value = Some(Value::Float(0f32));
         }
     }
+}
+
+fn finetune_rate(rate: f32, value: &Value) -> f32 {
+    if value.to_string().is_none(){return rate}
+    let value = value.to_string().unwrap().chars().next();
+    if value.is_none(){return rate}
+    let value = value.unwrap();
+    if value == CONFIG.image_process.fill_args.text_a.text{
+        return rate-CONFIG.image_process.fill_args.text_a.rate;
+    }
+    if value == CONFIG.image_process.fill_args.text_b.text{
+        return rate-CONFIG.image_process.fill_args.text_b.rate;
+    }
+    if value == CONFIG.image_process.fill_args.text_c.text{
+        return rate-CONFIG.image_process.fill_args.text_c.rate;
+    }
+    if value == CONFIG.image_process.fill_args.text_d.text{
+        return rate-CONFIG.image_process.fill_args.text_d.rate;
+    }
+    return rate;
 }

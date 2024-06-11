@@ -8,7 +8,7 @@ use rxing::{
     BufferedImageLuminanceSource,
 };
 use image::DynamicImage;
-use crate::{models::{engine_rec::ProcessedImages, rec_result::{OutputRec, Value}}, my_utils::image::crop_image, recognition::engine::Engine};
+use crate::{models::{engine_rec::ProcessedImages, rec_result::OutputRec, scan_json::Value}, my_utils::image::crop_image, recognition::engine::Engine};
 use crate::models::scan_json::Coordinate;
 pub fn decode_barcode(img: DynamicImage) -> std::option::Option<String> {
     let multi_format_reader = MultiUseMultiFormatReader::default();

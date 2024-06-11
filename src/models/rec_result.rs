@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
-use super::{card::MyPoint, scan_json::{AreaAssistPoint, Coordinate, InputScan, InputSecond}};
+use super::{card::MyPoint, scan_json::{AreaAssistPoint, Coordinate, InputScan, InputSecond, Value}};
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -57,6 +57,7 @@ pub struct RecOption{
     pub value: Option<Value>,
     pub coordinate: Option<Coordinate>,
     pub _value: Option<Value>,
+    pub invalue: Option<Value>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,16 +65,6 @@ pub struct PageSize{
     pub w: i32,
     pub h: i32
 }
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(untagged)] // Allows using multiple types for the enum variants
-pub enum Value {
-    String(String),
-    Integer(i32),
-    Float(f32),
-}
-
-
 
 
 impl Value {
@@ -121,11 +112,12 @@ impl OutputRec{
                         Recognize {
                             rec_id: rec.rec_id.clone(),
                             rec_type: rec.rec_type,
-                            rec_options: rec.options.iter().map(|_|{
+                            rec_options: rec.options.iter().map(|rec_value|{
                                 RecOption{
                                     value: None,
                                     coordinate: None,
-                                    _value: None
+                                    _value: None,
+                                    invalue: rec_value.value.clone()
                                 }
                             }).collect()
                         }
@@ -160,11 +152,12 @@ impl OutputRecSecond{
                         Recognize {
                             rec_id: rec.rec_id.clone(),
                             rec_type: rec.rec_type,
-                            rec_options: rec.options.iter().map(|_|{
+                            rec_options: rec.options.iter().map(|rec_value|{
                                 RecOption{
                                     value: None,
                                     coordinate: None,
-                                    _value: None
+                                    _value: None,
+                                    invalue: rec_value.value.clone()
                                 }
                             }).collect()
                         }

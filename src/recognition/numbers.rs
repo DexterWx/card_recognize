@@ -1,4 +1,4 @@
-use crate::{models::{engine_rec::ProcessedImages, rec_result::{OutputRec, Value}, scan_json::Coordinate}, recognition::engine::Engine};
+use crate::{models::{engine_rec::ProcessedImages, rec_result::OutputRec, scan_json::{Coordinate, Value}}, recognition::engine::Engine};
 
 
 pub trait RecNumber{

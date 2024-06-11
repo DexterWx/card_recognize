@@ -277,12 +277,17 @@ pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> R
     // _blurred_img_for_fill.save(path);
     
     // 对模糊后的图像进行二值化，为填图准备的二值图
-    let otsu = otsu_level(&_blurred_img_for_fill);
+    let _otsu = otsu_level(&_blurred_img_for_fill);
+    let otsu = (_otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_w) as u8;
     #[cfg(debug_assertions)]
     {
-        println!("otsu: {otsu:?}");
+        println!("otsu: {_otsu:?} -> {otsu:?}");
     }
-    let threshold_level = otsu.min(CONFIG.image_process.fill_args.binarization_threshold_max);
+    let threshold_level = otsu.min(
+        CONFIG.image_process.fill_args.binarization_threshold_max
+    ).max(
+        CONFIG.image_process.fill_args.binarization_threshold_min
+    );
     let blurred_img_bi = threshold(&_blurred_img_for_fill, threshold_level);
 
     // let path = format!("dev/test_data/blur.jpg");

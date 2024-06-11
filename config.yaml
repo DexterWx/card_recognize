@@ -2,8 +2,24 @@ image_process:
   gaussian_blur_sigma: 1.0
   empty_image_threshold: 254.5
   fill_args:
-    gaussian_blur_sigma: 2.5
-    binarization_threshold_max: 180
+    gaussian_blur_sigma: 3.1
+    binarization_threshold_max: 190
+    binarization_threshold_min: 150
+    binarization_threshold_w: 0.85
+    fill_same_min_max_diff: 22
+    fill_same_max: 70
+    text_a:
+      text: 'A'
+      rate: 0.0
+    text_b:
+      text: 'B'
+      rate: 0.05
+    text_c:
+      text: 'C'
+      rate: 0.0
+    text_d:
+      text: 'D'
+      rate: 0.0
   retry_args:
     - binarization_threshold: 172
       erode_kernel: 1

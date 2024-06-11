@@ -15,8 +15,23 @@ pub struct ImageProcess {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct FillArgs{
     pub binarization_threshold_max: u8,
-    pub gaussian_blur_sigma: f32
+    pub binarization_threshold_min: u8,
+    pub binarization_threshold_w: f32,
+    pub fill_same_min_max_diff: u8,
+    pub fill_same_max: u8,
+    pub gaussian_blur_sigma: f32,
+    pub text_a: TextBaseRate,
+    pub text_b: TextBaseRate,
+    pub text_c: TextBaseRate,
+    pub text_d: TextBaseRate
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TextBaseRate{
+    pub text: char,
+    pub rate: f32,
+}
+
 /// 需要多次尝试的参数
 #[derive(Debug, Deserialize, Serialize)]
     pub struct ProcessedImagesArgs{
@@ -122,7 +137,27 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
         ],
         fill_args: FillArgs{
             gaussian_blur_sigma: 2.5,
-            binarization_threshold_max: 190
+            binarization_threshold_max: 0.85,
+            fill_same_min_max_diff: 22,
+            fill_same_max: 70,
+            binarization_threshold_max: 190,
+            binarization_threshold_min: 140,
+            text_a: TextBaseRate{
+                text: 'A',
+                rate: 0.0
+            },
+            text_a: TextBaseRate{
+                text: 'B',
+                rate: 0.05
+            },
+            text_a: TextBaseRate{
+                text: 'C',
+                rate: 0.0
+            },
+            text_a: TextBaseRate{
+                text: 'D',
+                rate: 0.0
+            },
         }
     };
     
