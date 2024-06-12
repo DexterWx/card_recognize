@@ -309,7 +309,7 @@ fn mean(data: &[f32]) -> Option<f32> {
 }
 
 // 计算向量的标准差
-fn standard_deviation(data: &[f32]) -> Option<f32> {
+pub fn standard_deviation(data: &[f32]) -> Option<f32> {
     if let Some(mean) = mean(data) {
         let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / (data.len() as f32);
         Some(variance.sqrt())
@@ -319,7 +319,7 @@ fn standard_deviation(data: &[f32]) -> Option<f32> {
 }
 
 /// 利用otsu算法求填涂阈值，把f32先转成0-100的u8
-pub fn get_otsu(data: &Vec<u8>) -> u8 {
+pub fn get_otsu(data: &Vec<u8>, weight: f64) -> (u8, f64, f64) {
     let mut hist = [0u32; 256];
 
     for &value in data {
@@ -339,6 +339,7 @@ pub fn get_otsu(data: &Vec<u8>) -> u8 {
 
     let mut largest_variance = 0f64;
     let mut best_threshold = 0u8;
+    let mut best_back_weight = 0f64;
 
     for (threshold, &hist_count) in hist.iter().enumerate() {
         background_weight += hist_count;
@@ -359,13 +360,18 @@ pub fn get_otsu(data: &Vec<u8>) -> u8 {
 
         let mean_diff_squared = (background_mean - foreground_mean).powi(2);
         let intra_class_variance =
-            (background_weight as f64) * (foreground_weight as f64) * mean_diff_squared;
+            (background_weight as f64/total_weight as f64) * (foreground_weight as f64/total_weight as f64) * mean_diff_squared;
 
-        if intra_class_variance > largest_variance {
-            largest_variance = intra_class_variance;
+        // Apply the weight to the variance to adjust the threshold
+        let weighted_variance = intra_class_variance * (1.0 - weight * (1.0 - (threshold as f64 / 100.0)));
+
+        if weighted_variance > largest_variance {
+            largest_variance = weighted_variance;
             best_threshold = threshold as u8;
+            best_back_weight = background_weight as f64/total_weight as f64;
         }
     }
 
-    best_threshold
+    (best_threshold, largest_variance, best_back_weight)
 }
+

@@ -1,11 +1,12 @@
 use std::io::Cursor;
 
-use anyhow::{Result, Ok, anyhow};
-use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
-use imageproc::contrast::{otsu_level, threshold};
+use anyhow::{Result, Ok};
+use image::{DynamicImage, GrayImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
+use imageproc::contrast::threshold;
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate, Interpolation};
 use imageproc::morphology::{dilate, erode};
+use imageproc::stats::{histogram, ChannelHistogram};
 use imageproc::{filter::gaussian_blur_f32, point::Point};
 use imageproc::integral_image::{integral_image, sum_image_pixels};
 
@@ -270,31 +271,16 @@ pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> R
     // 对灰度图像进行高斯模糊，为寻找定位点准备的灰度图
     let blurred_img = gaussian_blur_f32(&gray_img, CONFIG.image_process.gaussian_blur_sigma);
     // 为了填图准备的灰度图，和定位点参数区分开
-    let _blurred_img_for_fill: ImageBuffer<Luma<u8>, Vec<u8>> = gaussian_blur_f32(&gray_img, CONFIG.image_process.fill_args.gaussian_blur_sigma);
-    // let _blurred_img_for_fill = gray_img;
 
     // let path = format!("dev/test_data/gau.jpg");
     // _blurred_img_for_fill.save(path);
-    
-    // 对模糊后的图像进行二值化，为填图准备的二值图
-    let _otsu = otsu_level(&_blurred_img_for_fill);
-    let otsu = (_otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_w) as u8;
-    #[cfg(debug_assertions)]
-    {
-        println!("otsu: {_otsu:?} -> {otsu:?}");
-    }
-    let threshold_level = otsu.min(
-        CONFIG.image_process.fill_args.binarization_threshold_max
-    ).max(
-        CONFIG.image_process.fill_args.binarization_threshold_min
-    );
-    let blurred_img_bi = threshold(&_blurred_img_for_fill, threshold_level);
 
     // let path = format!("dev/test_data/blur.jpg");
     // blurred_img_bi.save(path);
 
     // 生成形态学图的可调节参数
     let _process_args = &CONFIG.image_process.retry_args[0];
+    let blurred_img_bi = threshold(&blurred_img, _process_args.binarization_threshold);
     // 形态学变换图
     let mor_img = generate_mophology_from_blur(&blurred_img, _process_args);
 
@@ -312,44 +298,6 @@ pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> R
     })
 }
 
-pub fn calculate_binarization_threshold(img: &ImageBuffer<Luma<u8>, Vec<u8>>) -> Result<u8>{
-    let integral:ImageBuffer<Luma<i64>, Vec<i64>> = integral_image(&img);
-    let mut averages = Vec::new();
-    
-    let width = img.width() as i64;
-    let height = img.height() as i64;
-
-    let box_size = 200;
-    let step_size = 200;
-
-    for y in (0..height).step_by(step_size as usize) {
-        for x in (0..width).step_by(step_size as usize) {
-            let right = (x + box_size).min(width - 1);
-            let bottom = (y + box_size).min(height - 1);
-            let sum = sum_image_pixels(
-                &integral,
-                x as u32,
-                y as u32,
-                right as u32,
-                bottom as u32
-            )[0];
-            let num_pixels = (right - x + 1) * (bottom - y + 1);
-            let avg = sum / num_pixels;
-            averages.push(avg);
-        }
-    }
-
-    if averages.len() < 10 {
-        return Err(anyhow!("Not enough boxes (less than 10) to calculate the threshold."));
-    }
-
-    averages.sort_unstable_by(|a, b| b.cmp(a));
-    let top_10_avg: i64 = averages.iter().take(10).sum();
-    let final_avg = (top_10_avg / 10) as u8;
-
-    Ok(final_avg)
-}
-
 pub fn generate_mophology_from_blur(blurred_img: &ImageBuffer<Luma<u8>, Vec<u8>>, image_process_args: &ProcessedImagesArgs) -> ImageBuffer<Luma<u8>, Vec<u8>>{
     // 对模糊后的图像进行二值化
     let blurred_img_bi = threshold(&blurred_img, image_process_args.binarization_threshold);
@@ -365,8 +313,8 @@ pub fn generate_mophology_from_blur(blurred_img: &ImageBuffer<Luma<u8>, Vec<u8>>
 /// 旋转ProcessedImages
 pub fn rotate_processed_image(img: &mut ProcessedImages, center: &MyPoint, angle_radians: f32){
     let center = (center.x as f32, center.y as f32);
-    // 灰度图不需要旋转，只在定位点阶段使用。
     img.rgb = rotate(&img.rgb, center, angle_radians, Interpolation::Bilinear, Rgb([255,255,255]));
+    img.blur = rotate(&img.blur, center, angle_radians, Interpolation::Bilinear, Luma([255]));
     img.blur_bi = rotate(&img.blur_bi, center, angle_radians, Interpolation::Bilinear, Luma([255]));
     img.morphology = rotate(&img.morphology, center, angle_radians, Interpolation::Bilinear, Luma([255]));
     img.integral_gray = integral_image(&img.blur_bi);
@@ -388,7 +336,13 @@ pub fn calculate_page_number_difference(
             coordinate.x as u32 + coordinate.w as u32 - 1u32,
             coordinate.y as u32 + coordinate.h as u32 - 1u32
         )[0];
-        let mean_pixel = sum_pixel / (coordinate.w * coordinate.h) as i64;
+        let mean_pixel;
+        if coordinate.w * coordinate.h == 0 {
+            mean_pixel = 255
+        }
+        else{
+            mean_pixel = sum_pixel / (coordinate.w * coordinate.h) as i64;
+        }
         let rate_pixel = 1.0 - mean_pixel as f32 / 255f32;
         real_fill_rates.push(rate_pixel);
     }
@@ -471,3 +425,125 @@ pub fn standard_deviation_in_rect(img: &ImageBuffer<image::Luma<u8>, Vec<u8>>, r
     standard_deviation
 }
 
+/// [Otsu threshold level]: https://en.wikipedia.org/wiki/Otsu%27s_method
+pub fn otsu_level_and_variance(image: &GrayImage) -> (u8, f64) {
+    let hist = histogram(image);
+    let (width, height) = image.dimensions();
+    let total_weight = width * height;
+
+    // Sum of all pixel intensities, to use when calculating means.
+    let total_pixel_sum = hist.channels[0]
+        .iter()
+        .enumerate()
+        .fold(0f64, |sum, (t, h)| sum + (t as u32 * h) as f64);
+
+    // Sum of all pixel intensities in the background class.
+    let mut background_pixel_sum = 0f64;
+
+    // The weight of a class (background or foreground) is
+    // the number of pixels which belong to that class at
+    // the current threshold.
+    let mut background_weight = 0u32;
+    let mut foreground_weight;
+
+    let mut largest_variance = 0f64;
+    let mut best_threshold = 0u8;
+    let mut _largest_variance = 0f64;
+
+    for (threshold, hist_count) in hist.channels[0].iter().enumerate() {
+        background_weight += hist_count;
+        if background_weight == 0 {
+            continue;
+        };
+
+        foreground_weight = total_weight - background_weight;
+        if foreground_weight == 0 {
+            break;
+        };
+
+        background_pixel_sum += (threshold as u32 * hist_count) as f64;
+        let foreground_pixel_sum = total_pixel_sum - background_pixel_sum;
+
+        let background_mean = background_pixel_sum / (background_weight as f64);
+        let foreground_mean = foreground_pixel_sum / (foreground_weight as f64);
+
+        let mean_diff_squared = (background_mean - foreground_mean).powi(2);
+        let intra_class_variance =
+            (background_weight as f64) * (foreground_weight as f64) * mean_diff_squared;
+        let _intra_class_variance = 
+            (background_weight as f64/total_weight as f64) * (foreground_weight as f64/total_weight as f64) * mean_diff_squared;
+        
+        if intra_class_variance > largest_variance {
+            largest_variance = intra_class_variance;
+            best_threshold = threshold as u8;
+            _largest_variance = _intra_class_variance;
+        }
+    }
+
+    (best_threshold,_largest_variance)
+}
+
+/// Adds two `ChannelHistogram` structures together.
+pub fn add_histograms(hist1: &ChannelHistogram, hist2: &ChannelHistogram) -> ChannelHistogram {
+    let channel_count = hist1.channels.len();
+    let mut result = vec![[0u32; 256]; channel_count];
+
+    for i in 0..channel_count {
+        for j in 0..256 {
+            result[i][j] = hist1.channels[i][j] + hist2.channels[i][j];
+        }
+    }
+
+    ChannelHistogram { channels: result }
+}
+
+
+pub fn otsu_level_and_var_from_hist(hist: &ChannelHistogram) -> (u8, f64) {
+    let total_weight: u32 = hist.channels[0].iter().sum();
+    // Sum of all pixel intensities, to use when calculating means.
+    let total_pixel_sum = hist.channels[0]
+        .iter()
+        .enumerate()
+        .fold(0f64, |sum, (t, h)| sum + (t as u32 * h) as f64);
+
+    // Sum of all pixel intensities in the background class.
+    let mut background_pixel_sum = 0f64;
+
+    // The weight of a class (background or foreground) is
+    // the number of pixels which belong to that class at
+    // the current threshold.
+    let mut background_weight = 0u32;
+    let mut foreground_weight;
+
+    let mut largest_variance = 0f64;
+    let mut best_threshold = 0u8;
+
+    for (threshold, hist_count) in hist.channels[0].iter().enumerate() {
+        background_weight += hist_count;
+        if background_weight == 0 {
+            continue;
+        };
+
+        foreground_weight = total_weight - background_weight;
+        if foreground_weight == 0 {
+            break;
+        };
+
+        background_pixel_sum += (threshold as u32 * hist_count) as f64;
+        let foreground_pixel_sum = total_pixel_sum - background_pixel_sum;
+
+        let background_mean = background_pixel_sum / (background_weight as f64);
+        let foreground_mean = foreground_pixel_sum / (foreground_weight as f64);
+
+        let mean_diff_squared = (background_mean - foreground_mean).powi(2);
+        let intra_class_variance =
+            (background_weight as f64/total_weight as f64) * (foreground_weight as f64/total_weight as f64) * mean_diff_squared;
+
+        if intra_class_variance > largest_variance {
+            largest_variance = intra_class_variance;
+            best_threshold = threshold as u8;
+        }
+    }
+
+    (best_threshold, largest_variance)
+}

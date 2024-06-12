@@ -1,8 +1,10 @@
-use crate::models::scan_json::{self, InputImage, InputSecond, Value};
+
+
+use crate::models::scan_json::{self, InputImage, InputSecond, PageEnum, Value};
 use crate::config::CONFIG;
 
 use crate::models::engine_rec::ReferenceModelPoints;
-use crate::models::rec_result::{OutputRec, OutputRecSecond, PageSize};
+use crate::models::rec_result::{OutputEnum, OutputRec, OutputRecSecond, PageSize};
 use crate::my_utils::image::{generate_real_coordinate_with_model_points, image_to_base64, process_image};
 use crate::models::engine_rec::ProcessedImagesAndModelPoints;
 use crate::recognition::barcode::RecBarcode;
@@ -10,6 +12,8 @@ use crate::recognition::black_fill::RecBlackFill;
 use crate::recognition::numbers::RecNumber;
 use crate::recognition::vx::RecVX;
 use super::baizheng::{fix_coordinate_use_assist_points, Baizheng};
+
+pub static mut GLOBAL_CID: i32 = 0;
 
 #[derive(Debug)]
 pub struct Engine {
@@ -31,7 +35,12 @@ impl Engine {
     }
     /// 识别，输出第二个变量用于可视化
     pub fn recognize(&self, input_images: &InputImage) -> (OutputRec,  Vec<Option<ProcessedImagesAndModelPoints>>){
-        
+        // 处理内存溢出的错误
+        unsafe{
+            if !input_images.task_id.parse::<i32>().is_err(){
+                GLOBAL_CID = input_images.task_id.parse().unwrap();
+            }
+        }
         // 构建输出结构
         let scan_data = self.get_scan_data();
         let mut output = OutputRec::new(scan_data);
@@ -43,7 +52,7 @@ impl Engine {
         // 识别
         _recognize(self, &imgs_and_model_points, &mut output);
         // 二值化填涂率
-        Engine::binary_fill_rate(&mut output);
+        Engine::binary_fill_rate(&mut OutputEnum::OutputRec(&mut output));
         
         
 
@@ -66,6 +75,9 @@ impl Engine {
     pub fn recognize_second(input: &InputSecond) -> OutputRecSecond {
         let mut output = OutputRecSecond::new(input);
         _recognize_second(input, &mut output);
+        // 二值化填涂率
+        Engine::binary_fill_rate(&mut OutputEnum::OutputRecSecond(&mut output));
+
         output
     }
 }
@@ -95,25 +107,30 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
             model_points: &page.model_points_4.expect("model_points_4 is None"),
             real_model_points: &img_and_model_points.real_model_points
         };
+        let move_ops = &page_out.assist_points_move_op;
+        let (total_otsu, _total_var) = Engine::otsu_from_total_fill(&img_and_model_points.img, &Some(&reference_model_points), PageEnum::Page(page), &Some(&move_ops));
         // 遍历每个option，根据识别类型调用不同的方法
         for (rec, rec_out) in page.recognizes.iter().zip(page_out.recognizes.iter_mut()){
+            if rec.rec_type == CONFIG.recognize_type.single_select
+                || rec.rec_type == CONFIG.recognize_type.multi_select
+                || rec.rec_type == CONFIG.recognize_type.black_fill
+            {
+                Engine::rec_black_fill_options(&img_and_model_points.img, &Some(&reference_model_points),rec,rec_out, &Some(&move_ops),total_otsu,CONFIG.image_blackfill.neighborhood_size);
+                continue
+            }
+            if rec.rec_type == CONFIG.recognize_type.exam_number
+            {
+                Engine::rec_black_fill_options(&img_and_model_points.img, &Some(&reference_model_points),rec,rec_out, &Some(&move_ops),total_otsu,CONFIG.image_blackfill.neighborhood_size_exam_number);
+                continue
+            }
+            
             for (option, option_out) in rec.options.iter().zip(rec_out.rec_options.iter_mut()) {
                 let mut real_coordinate = generate_real_coordinate_with_model_points(
                     &reference_model_points, &option.coordinate, true, None
                 );
-                let option_value = &option.value;
-                fix_coordinate_use_assist_points(&mut real_coordinate, &page_out.assist_points_move_op.get(&option.coordinate.y));
+                fix_coordinate_use_assist_points(&mut real_coordinate, &move_ops.get(&option.coordinate.y));
                 let mut res:Option<Value> = None;
                 match rec.rec_type {
-                    rec_type if rec_type==CONFIG.recognize_type.black_fill => {
-                        res = Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate, option_value);
-                    }
-                    rec_type if rec_type==CONFIG.recognize_type.single_select => {
-                        res = Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate, option_value);
-                    }
-                    rec_type if rec_type==CONFIG.recognize_type.multi_select => {
-                        res = Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate, option_value);
-                    }
                     rec_type if rec_type==CONFIG.recognize_type.vx => {
                         res = Engine::rec_vx(&img_and_model_points.img, &real_coordinate);
                     }
@@ -147,21 +164,26 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
 fn _recognize_second(input: &InputSecond, output: &mut OutputRecSecond) {
     for (page,(img,page_out)) in input.pages.iter().zip(input.images.iter().zip(output.pages.iter_mut())){
         let img = process_image(None, img).unwrap();
+        
         for (rec, rec_out) in page.recognizes.iter().zip(page_out.recognizes.iter_mut()){
+    
+            let (total_otsu, _total_var) = Engine::otsu_from_total_fill(&img, &None, PageEnum::PageSecond(page), &None);
+            if rec.rec_type == CONFIG.recognize_type.single_select
+                || rec.rec_type == CONFIG.recognize_type.multi_select
+                || rec.rec_type == CONFIG.recognize_type.black_fill
+            {
+                Engine::rec_black_fill_options(&img, &None,rec,rec_out, &None,total_otsu,CONFIG.image_blackfill.neighborhood_size);
+                continue
+            }
+            if rec.rec_type == CONFIG.recognize_type.exam_number
+            {
+                Engine::rec_black_fill_options(&img, &None,rec,rec_out, &None,total_otsu,CONFIG.image_blackfill.neighborhood_size_exam_number);
+                continue
+            }
             for (option, option_out) in rec.options.iter().zip(rec_out.rec_options.iter_mut()) {
                 let real_coordinate = &option.coordinate;
-                let option_value = &option.value;
                 let mut res:Option<Value> = None;
                 match rec.rec_type {
-                    rec_type if rec_type==CONFIG.recognize_type.black_fill => {
-                        res = Engine::rec_black_fill(&img, real_coordinate, option_value);
-                    }
-                    rec_type if rec_type==CONFIG.recognize_type.single_select => {
-                        res = Engine::rec_black_fill(&img, &real_coordinate, option_value);
-                    }
-                    rec_type if rec_type==CONFIG.recognize_type.multi_select => {
-                        res = Engine::rec_black_fill(&img, &real_coordinate, option_value);
-                    }
                     rec_type if rec_type==CONFIG.recognize_type.vx => {
                         res = Engine::rec_vx(&img, real_coordinate);
                     }
@@ -179,7 +201,8 @@ fn _recognize_second(input: &InputSecond, output: &mut OutputRecSecond) {
                     }
                     _ =>{}
                 }
-                option_out.value = res;
+                option_out.value = res.clone();
+                option_out._value = res;
                 #[cfg(debug_assertions)]
                 {
                     option_out.coordinate = Some(real_coordinate.clone());

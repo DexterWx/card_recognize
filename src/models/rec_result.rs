@@ -167,3 +167,9 @@ impl OutputRecSecond{
         }
     }
 }
+
+#[derive(Debug)]
+pub enum OutputEnum<'a> {
+    OutputRec(&'a mut OutputRec),
+    OutputRecSecond(&'a mut OutputRecSecond),
+}

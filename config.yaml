@@ -2,12 +2,14 @@ image_process:
   gaussian_blur_sigma: 1.0
   empty_image_threshold: 254.5
   fill_args:
-    gaussian_blur_sigma: 3.1
-    binarization_threshold_max: 190
-    binarization_threshold_min: 150
-    binarization_threshold_w: 0.85
-    fill_same_min_max_diff: 22
-    fill_same_max: 70
+    all_fill_or_empty_min_var: 100.0
+    all_fill_var: 13.0
+    all_fill_otsu: 116
+    fill_same_max: 85
+    empty_same_max: 65
+    same_var: 135
+    same_var_exam_number: 66
+    otsu_black_fill_sep_weight: 0.0
     text_a:
       text: 'A'
       rate: 0.0
@@ -16,7 +18,7 @@ image_process:
       rate: 0.05
     text_c:
       text: 'C'
-      rate: 0.0
+      rate: -0.05
     text_d:
       text: 'D'
       rate: 0.0
@@ -51,6 +53,7 @@ image_baizheng:
   model_point_max_distance: 60
   assist_point_nearby_length: 4
   area_assist_point_nearby_length: 22
+  single_area_assist_delength: 6
   area_assist_point_nearby_step: 3
   area_assist_point_nearby_retry: 2
   valid_coordinates4_cosine_similarity: 0.996
@@ -58,7 +61,8 @@ image_baizheng:
 location:
   select_model_point_cal_real_coor_y_boundary: 0.7
 image_blackfill:
-  neighborhood_size: 5
+  neighborhood_size: 9
+  neighborhood_size_exam_number: 16
   image_type: 0
   min_filled_ratio: 0.5
   debug_rendering_show_rate_move: 16
@@ -72,3 +76,4 @@ recognize_type:
   coordinate: 6
   single_select: 7
   multi_select: 8
+  exam_number: 9
