@@ -10,9 +10,13 @@ use image::Luma;
 use image::Rgb;
 use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
+use imageproc::contrast::otsu_level;
+use imageproc::contrast::threshold;
 use imageproc::drawing::draw_filled_circle_mut;
 use imageproc::drawing::draw_filled_rect_mut;
 
+use imageproc::filter::gaussian_blur_f32;
+use imageproc::integral_image::integral_image;
 use imageproc::integral_image::sum_image_pixels;
 use imageproc::rect::Rect;
 
@@ -222,6 +226,36 @@ impl Baizheng for Engine {
             fix_model_points_coordinate(img, coors, CONFIG.image_baizheng.model_point_scan_range);
             rotate_img_and_model_points(img, coors, &center_and_angle.center, center_and_angle.angle);
         }
+
+        // 重新计算otsu值，防止扫描造成的图片周围黑白边干扰
+        for image_and_model_points in processed_images_res.iter_mut(){
+            if image_and_model_points.is_none(){continue}
+            let image_and_model_points = image_and_model_points.as_mut().unwrap();
+            let image = &mut image_and_model_points.img;
+            let model_points = &image_and_model_points.real_model_points;
+            let gray = gaussian_blur_f32(&image.blur, CONFIG.image_process.fill_args.gaussian_blur_sigma);
+            // 对模糊后的图像进行二值化，为填图准备的二值图
+            let crop_gray = image::imageops::crop_imm(
+                &gray, model_points[0].x as u32, model_points[0].y as u32,
+                (model_points[1].x-model_points[0].x) as u32,
+                (model_points[2].y-model_points[0].y) as u32,
+            ).to_image();
+
+            let _otsu = otsu_level(&crop_gray);
+            let otsu = (_otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_w) as u8;
+            #[cfg(debug_assertions)]
+            {
+                println!("otsu: {_otsu:?} -> {otsu:?}");
+            }
+            let threshold_level = otsu.min(
+                CONFIG.image_process.fill_args.binarization_threshold_max
+            ).max(
+                CONFIG.image_process.fill_args.binarization_threshold_min
+            );
+            let blurred_img_bi = threshold(&gray, threshold_level);
+            image.blur_bi = blurred_img_bi;
+            image.integral_gray = integral_image(&image.blur_bi);
+        } 
 
         processed_images_res
     }

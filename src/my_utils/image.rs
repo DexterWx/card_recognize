@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use anyhow::{Result, Ok, anyhow};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
-use imageproc::contrast::{otsu_level, threshold};
+use imageproc::contrast::threshold;
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate, Interpolation};
 use imageproc::morphology::{dilate, erode};
@@ -270,31 +270,16 @@ pub fn process_image(model_size: Option<&ModelSize>, base64_image: &String) -> R
     // 对灰度图像进行高斯模糊，为寻找定位点准备的灰度图
     let blurred_img = gaussian_blur_f32(&gray_img, CONFIG.image_process.gaussian_blur_sigma);
     // 为了填图准备的灰度图，和定位点参数区分开
-    let _blurred_img_for_fill: ImageBuffer<Luma<u8>, Vec<u8>> = gaussian_blur_f32(&gray_img, CONFIG.image_process.fill_args.gaussian_blur_sigma);
-    // let _blurred_img_for_fill = gray_img;
 
     // let path = format!("dev/test_data/gau.jpg");
     // _blurred_img_for_fill.save(path);
-    
-    // 对模糊后的图像进行二值化，为填图准备的二值图
-    let _otsu = otsu_level(&_blurred_img_for_fill);
-    let otsu = (_otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_w) as u8;
-    #[cfg(debug_assertions)]
-    {
-        println!("otsu: {_otsu:?} -> {otsu:?}");
-    }
-    let threshold_level = otsu.min(
-        CONFIG.image_process.fill_args.binarization_threshold_max
-    ).max(
-        CONFIG.image_process.fill_args.binarization_threshold_min
-    );
-    let blurred_img_bi = threshold(&_blurred_img_for_fill, threshold_level);
 
     // let path = format!("dev/test_data/blur.jpg");
     // blurred_img_bi.save(path);
 
     // 生成形态学图的可调节参数
     let _process_args = &CONFIG.image_process.retry_args[0];
+    let blurred_img_bi = threshold(&blurred_img, _process_args.binarization_threshold);
     // 形态学变换图
     let mor_img = generate_mophology_from_blur(&blurred_img, _process_args);
 
@@ -365,8 +350,8 @@ pub fn generate_mophology_from_blur(blurred_img: &ImageBuffer<Luma<u8>, Vec<u8>>
 /// 旋转ProcessedImages
 pub fn rotate_processed_image(img: &mut ProcessedImages, center: &MyPoint, angle_radians: f32){
     let center = (center.x as f32, center.y as f32);
-    // 灰度图不需要旋转，只在定位点阶段使用。
     img.rgb = rotate(&img.rgb, center, angle_radians, Interpolation::Bilinear, Rgb([255,255,255]));
+    img.blur = rotate(&img.blur, center, angle_radians, Interpolation::Bilinear, Luma([255]));
     img.blur_bi = rotate(&img.blur_bi, center, angle_radians, Interpolation::Bilinear, Luma([255]));
     img.morphology = rotate(&img.morphology, center, angle_radians, Interpolation::Bilinear, Luma([255]));
     img.integral_gray = integral_image(&img.blur_bi);
