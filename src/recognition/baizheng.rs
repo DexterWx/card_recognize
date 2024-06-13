@@ -10,7 +10,6 @@ use image::Luma;
 use image::Rgb;
 use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
-use imageproc::contrast::otsu_level;
 use imageproc::contrast::threshold;
 use imageproc::drawing::draw_filled_circle_mut;
 use imageproc::drawing::draw_filled_rect_mut;
@@ -241,12 +240,20 @@ impl Baizheng for Engine {
                 (model_points[2].y-model_points[0].y) as u32,
             ).to_image();
 
-            let _otsu = otsu_level(&crop_gray);
-            let otsu = (_otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_w) as u8;
+            let (_otsu,variance) = otsu_level_and_variance(&crop_gray);
+            let mut otsu = (_otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_base_w) as u8;
+            if variance > CONFIG.image_process.fill_args.binarization_threshold_var_decrease {
+                otsu = (otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_var_decrease_w) as u8
+            }
+            if variance < CONFIG.image_process.fill_args.binarization_threshold_var_increase {
+                otsu = (otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_var_increase_w) as u8
+            }
             #[cfg(debug_assertions)]
             {
                 println!("otsu: {_otsu:?} -> {otsu:?}");
+                // println!("variance: {variance:?}");
             }
+            println!("variance: {variance:?}");
             let threshold_level = otsu.min(
                 CONFIG.image_process.fill_args.binarization_threshold_max
             ).max(

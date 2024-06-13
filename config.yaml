@@ -4,9 +4,14 @@ image_process:
   fill_args:
     gaussian_blur_sigma: 2.83
     binarization_threshold_max: 190
-    binarization_threshold_min: 150
-    binarization_threshold_w: 0.88
-    fill_same_min_max_diff: 22
+    binarization_threshold_min: 130
+    binarization_threshold_base_w: 0.83
+    binarization_threshold_var_decrease_w: 0.9
+    binarization_threshold_var_decrease: 510
+    binarization_threshold_var_increase_w: 1.1
+    binarization_threshold_var_increase: 320
+    fill_same_min_max_diff_for_all_empty: 22
+    fill_same_min_max_diff_for_all_fill: 30
     fill_same_max: 70
     text_a:
       text: 'A'
@@ -58,7 +63,7 @@ image_baizheng:
 location:
   select_model_point_cal_real_coor_y_boundary: 0.7
 image_blackfill:
-  neighborhood_size: 5
+  neighborhood_size: 3
   image_type: 0
   min_filled_ratio: 0.5
   debug_rendering_show_rate_move: 16

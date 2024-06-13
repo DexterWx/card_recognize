@@ -1,11 +1,12 @@
 use std::io::Cursor;
 
 use anyhow::{Result, Ok, anyhow};
-use image::{DynamicImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
+use image::{DynamicImage, GrayImage, ImageBuffer, ImageFormat, Luma, Rgb, RgbImage};
 use imageproc::contrast::threshold;
 use imageproc::distance_transform::Norm;
 use imageproc::geometric_transformations::{rotate, Interpolation};
 use imageproc::morphology::{dilate, erode};
+use imageproc::stats::histogram;
 use imageproc::{filter::gaussian_blur_f32, point::Point};
 use imageproc::integral_image::{integral_image, sum_image_pixels};
 
@@ -456,3 +457,60 @@ pub fn standard_deviation_in_rect(img: &ImageBuffer<image::Luma<u8>, Vec<u8>>, r
     standard_deviation
 }
 
+/// [Otsu threshold level]: https://en.wikipedia.org/wiki/Otsu%27s_method
+pub fn otsu_level_and_variance(image: &GrayImage) -> (u8, f64) {
+    let hist = histogram(image);
+    let (width, height) = image.dimensions();
+    let total_weight = width * height;
+
+    // Sum of all pixel intensities, to use when calculating means.
+    let total_pixel_sum = hist.channels[0]
+        .iter()
+        .enumerate()
+        .fold(0f64, |sum, (t, h)| sum + (t as u32 * h) as f64);
+
+    // Sum of all pixel intensities in the background class.
+    let mut background_pixel_sum = 0f64;
+
+    // The weight of a class (background or foreground) is
+    // the number of pixels which belong to that class at
+    // the current threshold.
+    let mut background_weight = 0u32;
+    let mut foreground_weight;
+
+    let mut largest_variance = 0f64;
+    let mut best_threshold = 0u8;
+    let mut _largest_variance = 0f64;
+
+    for (threshold, hist_count) in hist.channels[0].iter().enumerate() {
+        background_weight += hist_count;
+        if background_weight == 0 {
+            continue;
+        };
+
+        foreground_weight = total_weight - background_weight;
+        if foreground_weight == 0 {
+            break;
+        };
+
+        background_pixel_sum += (threshold as u32 * hist_count) as f64;
+        let foreground_pixel_sum = total_pixel_sum - background_pixel_sum;
+
+        let background_mean = background_pixel_sum / (background_weight as f64);
+        let foreground_mean = foreground_pixel_sum / (foreground_weight as f64);
+
+        let mean_diff_squared = (background_mean - foreground_mean).powi(2);
+        let intra_class_variance =
+            (background_weight as f64) * (foreground_weight as f64) * mean_diff_squared;
+        let _intra_class_variance = 
+            (background_weight as f64/total_weight as f64) * (foreground_weight as f64/total_weight as f64) * mean_diff_squared;
+        
+        if intra_class_variance > largest_variance {
+            largest_variance = intra_class_variance;
+            best_threshold = threshold as u8;
+            _largest_variance = _intra_class_variance;
+        }
+    }
+
+    (best_threshold,_largest_variance)
+}

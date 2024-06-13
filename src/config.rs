@@ -16,8 +16,13 @@ pub struct ImageProcess {
 pub struct FillArgs{
     pub binarization_threshold_max: u8,
     pub binarization_threshold_min: u8,
-    pub binarization_threshold_w: f32,
-    pub fill_same_min_max_diff: u8,
+    pub binarization_threshold_base_w: f32,
+    pub binarization_threshold_var_decrease_w: f32,
+    pub binarization_threshold_var_increase_w: f32,
+    pub binarization_threshold_var_decrease: f64,
+    pub binarization_threshold_var_increase: f64,
+    pub fill_same_min_max_diff_for_all_fill: u8,
+    pub fill_same_min_max_diff_for_all_empty: u8,
     pub fill_same_max: u8,
     pub gaussian_blur_sigma: f32,
     pub text_a: TextBaseRate,
@@ -137,11 +142,16 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
         ],
         fill_args: FillArgs{
             gaussian_blur_sigma: 2.5,
-            binarization_threshold_max: 0.85,
-            fill_same_min_max_diff: 22,
+            binarization_threshold_base_w: 0.83,
+            binarization_threshold_var_decrease_w:0.9,
+            binarization_threshold_var_decrease:420f64,
+            binarization_threshold_var_increase_w:1.1,
+            binarization_threshold_var_increase:280f64,
+            fill_same_min_max_diff_for_all_empty: 22,
+            fill_same_min_max_diff_for_all_fill: 30,
             fill_same_max: 70,
             binarization_threshold_max: 190,
-            binarization_threshold_min: 140,
+            binarization_threshold_min: 130,
             text_a: TextBaseRate{
                 text: 'A',
                 rate: 0.0
@@ -152,7 +162,7 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
             },
             text_a: TextBaseRate{
                 text: 'C',
-                rate: 0.0
+                rate: -0.05
             },
             text_a: TextBaseRate{
                 text: 'D',

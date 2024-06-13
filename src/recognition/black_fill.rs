@@ -158,9 +158,15 @@ fn set_single_fill_rate(options: &mut Vec<RecOption>){
     if options.len() == 0 {return}
     let fill_rates_u8 = get_array_values_for_otsu(options);
     let mut best_threshold = get_otsu(&fill_rates_u8);
-    if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() < CONFIG.image_process.fill_args.fill_same_min_max_diff{
-        if *fill_rates_u8.iter().max().unwrap() >= CONFIG.image_process.fill_args.fill_same_max {best_threshold = 0}
-        else {best_threshold = 100}
+    if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() < CONFIG.image_process.fill_args.fill_same_min_max_diff_for_all_empty
+        && *fill_rates_u8.iter().max().unwrap() < CONFIG.image_process.fill_args.fill_same_max
+    {
+        best_threshold = 100;
+    }
+    if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() <= CONFIG.image_process.fill_args.fill_same_min_max_diff_for_all_fill
+        && *fill_rates_u8.iter().max().unwrap() >= CONFIG.image_process.fill_args.fill_same_max
+    {
+        best_threshold = 0;
     }
     #[cfg(debug_assertions)]
     {
@@ -177,9 +183,15 @@ fn set_multi_fill_rate(options: &mut Vec<RecOption>){
     if options.len() == 0 {return}
     let fill_rates_u8 = get_array_values_for_otsu(options);
     let mut best_threshold = get_otsu(&fill_rates_u8);
-    if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() < CONFIG.image_process.fill_args.fill_same_min_max_diff{
-        if *fill_rates_u8.iter().max().unwrap() >= CONFIG.image_process.fill_args.fill_same_max {best_threshold = 0}
-        else {best_threshold = 100}
+    if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() < CONFIG.image_process.fill_args.fill_same_min_max_diff_for_all_empty
+        && *fill_rates_u8.iter().max().unwrap() < CONFIG.image_process.fill_args.fill_same_max
+    {
+        best_threshold = 100;
+    }
+    if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() <= CONFIG.image_process.fill_args.fill_same_min_max_diff_for_all_fill
+        && *fill_rates_u8.iter().max().unwrap() >= CONFIG.image_process.fill_args.fill_same_max
+    {
+        best_threshold = 0;
     }
     #[cfg(debug_assertions)]
     {
