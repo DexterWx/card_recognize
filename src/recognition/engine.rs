@@ -95,24 +95,24 @@ fn _recognize(engine: &Engine, imgs_and_model_points: &Vec<Option<ProcessedImage
             model_points: &page.model_points_4.expect("model_points_4 is None"),
             real_model_points: &img_and_model_points.real_model_points
         };
+        let move_ops = &page_out.assist_points_move_op;
         // 遍历每个option，根据识别类型调用不同的方法
         for (rec, rec_out) in page.recognizes.iter().zip(page_out.recognizes.iter_mut()){
+            if rec.rec_type == CONFIG.recognize_type.single_select
+                || rec.rec_type == CONFIG.recognize_type.multi_select
+            {
+                Engine::rec_fill_options(&img_and_model_points.img, &reference_model_points,rec,rec_out, &move_ops);
+                continue
+            }
             for (option, option_out) in rec.options.iter().zip(rec_out.rec_options.iter_mut()) {
                 let mut real_coordinate = generate_real_coordinate_with_model_points(
                     &reference_model_points, &option.coordinate, true, None
                 );
-                let option_value = &option.value;
-                fix_coordinate_use_assist_points(&mut real_coordinate, &page_out.assist_points_move_op.get(&option.coordinate.y));
+                fix_coordinate_use_assist_points(&mut real_coordinate, &move_ops.get(&option.coordinate.y));
                 let mut res:Option<Value> = None;
                 match rec.rec_type {
                     rec_type if rec_type==CONFIG.recognize_type.black_fill => {
-                        res = Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate, option_value);
-                    }
-                    rec_type if rec_type==CONFIG.recognize_type.single_select => {
-                        res = Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate, option_value);
-                    }
-                    rec_type if rec_type==CONFIG.recognize_type.multi_select => {
-                        res = Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate, option_value);
+                        res = Some(Value::Float(Engine::rec_black_fill(&img_and_model_points.img, &real_coordinate, &option.value)));
                     }
                     rec_type if rec_type==CONFIG.recognize_type.vx => {
                         res = Engine::rec_vx(&img_and_model_points.img, &real_coordinate);
@@ -154,13 +154,13 @@ fn _recognize_second(input: &InputSecond, output: &mut OutputRecSecond) {
                 let mut res:Option<Value> = None;
                 match rec.rec_type {
                     rec_type if rec_type==CONFIG.recognize_type.black_fill => {
-                        res = Engine::rec_black_fill(&img, real_coordinate, option_value);
+                        res = Some(Value::Float(Engine::rec_black_fill(&img, real_coordinate, option_value)));
                     }
                     rec_type if rec_type==CONFIG.recognize_type.single_select => {
-                        res = Engine::rec_black_fill(&img, &real_coordinate, option_value);
+                        res = Some(Value::Float(Engine::rec_black_fill(&img, real_coordinate, option_value)));
                     }
                     rec_type if rec_type==CONFIG.recognize_type.multi_select => {
-                        res = Engine::rec_black_fill(&img, &real_coordinate, option_value);
+                        res = Some(Value::Float(Engine::rec_black_fill(&img, real_coordinate, option_value)));
                     }
                     rec_type if rec_type==CONFIG.recognize_type.vx => {
                         res = Engine::rec_vx(&img, real_coordinate);

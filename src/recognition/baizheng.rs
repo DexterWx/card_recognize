@@ -254,11 +254,12 @@ impl Baizheng for Engine {
                 // println!("variance: {variance:?}");
             }
             println!("variance: {variance:?}");
-            let threshold_level = otsu.min(
+            let mut threshold_level = otsu.min(
                 CONFIG.image_process.fill_args.binarization_threshold_max
             ).max(
                 CONFIG.image_process.fill_args.binarization_threshold_min
             );
+            if _otsu < 213 {threshold_level = threshold_level.min(180)}
             let blurred_img_bi = threshold(&gray, threshold_level);
             image.blur_bi = blurred_img_bi;
             image.integral_gray = integral_image(&image.blur_bi);

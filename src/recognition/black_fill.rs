@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use crate::config::CONFIG;
-use crate::models::rec_result::RecOption;
-use crate::models::scan_json::Value;
+use crate::models::engine_rec::ReferenceModelPoints;
+use crate::models::rec_result::{MoveOperation, RecOption, Recognize};
+use crate::models::scan_json::{Recognition, Value};
 use crate::my_utils::math::get_otsu;
 use crate::{models::{engine_rec::ProcessedImages, rec_result::OutputRec, scan_json::Coordinate}, recognition::engine::Engine};
 use crate::my_utils::image::*;
@@ -11,15 +14,61 @@ use imageproc::integral_image::sum_image_pixels;
 use imageproc::drawing::{draw_filled_rect_mut, draw_text_mut};
 use ab_glyph::FontArc;
 
+use super::baizheng::fix_coordinate_use_assist_points;
+
 pub trait RecBlackFill {
     /// 填涂识别
-    fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate, value: &Option<Value>) -> Option<Value>;
+    fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate, value: &Option<Value>) -> f32;
+    fn rec_fill_options(img: &ProcessedImages, reference_model_points: &ReferenceModelPoints, rec: &Recognition,out_rec: &mut Recognize, move_ops: &HashMap<i32, MoveOperation>);
     fn binary_fill_rate(output: &mut OutputRec);
     fn rendering_black_fill(output: &mut OutputRec);
     fn rendering_black_fill_show_rate(output: &mut OutputRec);
 }
 
 impl RecBlackFill for Engine {
+    fn rec_fill_options(img: &ProcessedImages, reference_model_points: &ReferenceModelPoints, rec: &Recognition, out_rec: &mut Recognize, move_ops: &HashMap<i32, MoveOperation>){
+
+        let mut max_var = 0f64;
+        let mut max_rates: Vec<u8> = Vec::new();
+        let mut max_coors: Vec<Coordinate> = Vec::new();
+        //跨度向下取整
+        let space = (CONFIG.image_blackfill.neighborhood_size / 2) as i32;
+        // 遍历x轴方向从x-2到x+2
+        for i in -space..=space {
+            // 遍历y轴方向从y-2到y+2
+            for j in -space..=space {
+                let mut rates = Vec::new();
+                let mut coors: Vec<Coordinate> = Vec::new();
+                for option in rec.options.iter(){
+                    let mut real_coordinate = generate_real_coordinate_with_model_points(
+                        &reference_model_points, &option.coordinate, true, None
+                    );
+                    let option_value = &option.value;
+                    fix_coordinate_use_assist_points(&mut real_coordinate, &move_ops.get(&option.coordinate.y));
+                    real_coordinate.x+=i;
+                    real_coordinate.y+=j;
+                    let rate = Self::rec_black_fill(img, &real_coordinate, option_value);
+                    rates.push((rate*100f32) as u8);
+                    coors.push(real_coordinate);
+                }
+                let (_, var) = get_otsu(&rates);
+                if var > max_var {
+                    max_var = var;
+                    max_rates = rates;
+                    max_coors = coors;
+                }
+            }
+        }
+        
+        for ((option,rate),coor) in out_rec.rec_options.iter_mut().zip(max_rates.iter()).zip(max_coors.iter()){
+            option.value = Some(Value::Float(*rate as f32/100f32));
+            option._value = Some(Value::Float(*rate as f32/100f32));
+            #[cfg(debug_assertions)]
+            {
+                option.coordinate = Some(*coor);
+            }
+        }
+    }
     fn binary_fill_rate(output: &mut OutputRec) {
         for page in output.pages.iter_mut(){
             if !page.has_page {continue}
@@ -33,7 +82,7 @@ impl RecBlackFill for Engine {
             }
         }
     }
-    fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate, value: &Option<Value>) -> Option<Value> {
+    fn rec_black_fill(img: &ProcessedImages, coordinate: &Coordinate, value: &Option<Value>) -> f32 {
         let rect = Rect::at(coordinate.x, coordinate.y).of_size(coordinate.w as u32, coordinate.h as u32);
         let integral_image;
         if CONFIG.image_blackfill.image_type == 0 {
@@ -42,16 +91,16 @@ impl RecBlackFill for Engine {
             integral_image = &img.integral_morphology;
         }
         //计算摆正后原始区域填涂率
-        let filled_ratio = calculate_fill_ratio(integral_image, rect);
+        let mut filled_ratio = calculate_fill_ratio(integral_image, rect);
         //计算制定区域最大值，默认搜索5*5范围内最大
-        let mut filled_ratio = find_max_fillrate_in_neighborhood(integral_image, coordinate, filled_ratio);
+        // let mut filled_ratio = find_max_fillrate_in_neighborhood(integral_image, coordinate, filled_ratio);
         //调整不同选项的选项的基础阈值，微调填涂率
         if !value.is_none(){
             filled_ratio = finetune_rate(filled_ratio, value.as_ref().unwrap());
         }
 
         filled_ratio = filled_ratio.min(1f32).max(0f32);  
-        return Some(Value::Float(filled_ratio));
+        filled_ratio
     }
 
     fn rendering_black_fill(output: &mut OutputRec) {
@@ -129,35 +178,11 @@ fn calculate_fill_ratio(image: &ImageBuffer<Luma<i64>, Vec<i64>>, rect: Rect) ->
     return filled_ratio;
 }
 
-/// 以左上角（x,y,w,h）为基准，遍历所给区域附近范围，默认5*5
-/// 查找最大填涂率
-fn find_max_fillrate_in_neighborhood(integral_image: &ImageBuffer<Luma<i64>, Vec<i64>>, coordinate: &Coordinate, original_fillrate: f32) -> f32 {
-    let mut new_fillrate = original_fillrate;
-    let x = coordinate.x;
-    let y = coordinate.y;
-    let w = coordinate.w as u32;
-    let h = coordinate.h as u32;
-    //跨度向下取整
-    let space = CONFIG.image_blackfill.neighborhood_size / 2;
-    // 遍历x轴方向从x-2到x+2
-    for i in (x - space as i32)..=(x + space as i32) {
-        // 遍历y轴方向从y-2到y+2
-        for j in (y - space as i32)..=(y + space as i32) {
-            let rect = Rect::at(i, j).of_size(w, h);
-            let fillrate = calculate_fill_ratio(integral_image, rect);
-            if new_fillrate < fillrate {
-                new_fillrate = fillrate;
-            }
-        }
-    }
-    return new_fillrate;
-}
-
 fn set_single_fill_rate(options: &mut Vec<RecOption>){
 
     if options.len() == 0 {return}
     let fill_rates_u8 = get_array_values_for_otsu(options);
-    let mut best_threshold = get_otsu(&fill_rates_u8);
+    let (mut best_threshold,_) = get_otsu(&fill_rates_u8);
     if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() < CONFIG.image_process.fill_args.fill_same_min_max_diff_for_all_empty
         && *fill_rates_u8.iter().max().unwrap() < CONFIG.image_process.fill_args.fill_same_max
     {
@@ -182,7 +207,7 @@ fn set_multi_fill_rate(options: &mut Vec<RecOption>){
 
     if options.len() == 0 {return}
     let fill_rates_u8 = get_array_values_for_otsu(options);
-    let mut best_threshold = get_otsu(&fill_rates_u8);
+    let (mut best_threshold,_) = get_otsu(&fill_rates_u8);
     if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() < CONFIG.image_process.fill_args.fill_same_min_max_diff_for_all_empty
         && *fill_rates_u8.iter().max().unwrap() < CONFIG.image_process.fill_args.fill_same_max
     {

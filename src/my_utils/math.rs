@@ -319,7 +319,7 @@ fn standard_deviation(data: &[f32]) -> Option<f32> {
 }
 
 /// 利用otsu算法求填涂阈值，把f32先转成0-100的u8
-pub fn get_otsu(data: &Vec<u8>) -> u8 {
+pub fn get_otsu(data: &Vec<u8>) -> (u8,f64) {
     let mut hist = [0u32; 256];
 
     for &value in data {
@@ -367,5 +367,5 @@ pub fn get_otsu(data: &Vec<u8>) -> u8 {
         }
     }
 
-    best_threshold
+    (best_threshold, largest_variance)
 }
