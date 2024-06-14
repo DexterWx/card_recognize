@@ -6,12 +6,17 @@ image_process:
     binarization_threshold_max: 190
     binarization_threshold_min: 130
     binarization_threshold_base_w: 0.83
-    binarization_threshold_var_decrease_w: 0.9
-    binarization_threshold_var_decrease: 510
+    binarization_threshold_var_decrease2_w: 0.9
+    binarization_threshold_var_decrease2: 1300
+    binarization_threshold_var_decrease1_w: 0.93
+    binarization_threshold_var_decrease1: 510
     binarization_threshold_var_increase_w: 1.1
     binarization_threshold_var_increase: 320
     fill_same_min_max_diff_for_all_empty: 22
     fill_same_min_max_diff_for_all_fill: 30
+    otsu_control_otsu_max: 216
+    otsu_control_binarization_threshold_max: 180
+    otsu_black_fill_sep_weight: 0.9
     fill_same_max: 70
     text_a:
       text: 'A'
@@ -21,7 +26,7 @@ image_process:
       rate: 0.05
     text_c:
       text: 'C'
-      rate: 0.0
+      rate: -0.05
     text_d:
       text: 'D'
       rate: 0.0
@@ -56,6 +61,7 @@ image_baizheng:
   model_point_max_distance: 60
   assist_point_nearby_length: 4
   area_assist_point_nearby_length: 22
+  single_area_assist_delength: 6
   area_assist_point_nearby_step: 3
   area_assist_point_nearby_retry: 2
   valid_coordinates4_cosine_similarity: 0.996
@@ -63,7 +69,7 @@ image_baizheng:
 location:
   select_model_point_cal_real_coor_y_boundary: 0.7
 image_blackfill:
-  neighborhood_size: 3
+  neighborhood_size: 5
   image_type: 0
   min_filled_ratio: 0.5
   debug_rendering_show_rate_move: 16

@@ -11,6 +11,8 @@ use crate::recognition::numbers::RecNumber;
 use crate::recognition::vx::RecVX;
 use super::baizheng::{fix_coordinate_use_assist_points, Baizheng};
 
+pub static mut GLOBAL_CID: i32 = 0;
+
 #[derive(Debug)]
 pub struct Engine {
     scan_data: scan_json::InputScan
@@ -31,7 +33,12 @@ impl Engine {
     }
     /// 识别，输出第二个变量用于可视化
     pub fn recognize(&self, input_images: &InputImage) -> (OutputRec,  Vec<Option<ProcessedImagesAndModelPoints>>){
-        
+        // 处理内存溢出的错误
+        unsafe{
+            if !input_images.task_id.parse::<i32>().is_err(){
+                GLOBAL_CID = input_images.task_id.parse().unwrap();
+            }
+        }
         // 构建输出结构
         let scan_data = self.get_scan_data();
         let mut output = OutputRec::new(scan_data);

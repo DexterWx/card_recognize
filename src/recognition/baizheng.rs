@@ -242,24 +242,27 @@ impl Baizheng for Engine {
 
             let (_otsu,variance) = otsu_level_and_variance(&crop_gray);
             let mut otsu = (_otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_base_w) as u8;
-            if variance > CONFIG.image_process.fill_args.binarization_threshold_var_decrease {
-                otsu = (otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_var_decrease_w) as u8
+            if variance >= CONFIG.image_process.fill_args.binarization_threshold_var_decrease2 {
+                otsu = (otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_var_decrease2_w) as u8
             }
+            else if variance >= CONFIG.image_process.fill_args.binarization_threshold_var_decrease1 {
+                otsu = (otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_var_decrease1_w) as u8
+            }
+
             if variance < CONFIG.image_process.fill_args.binarization_threshold_var_increase {
                 otsu = (otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_var_increase_w) as u8
             }
             #[cfg(debug_assertions)]
             {
                 println!("otsu: {_otsu:?} -> {otsu:?}");
-                // println!("variance: {variance:?}");
+                println!("variance: {variance:?}");
             }
-            println!("variance: {variance:?}");
             let mut threshold_level = otsu.min(
                 CONFIG.image_process.fill_args.binarization_threshold_max
             ).max(
                 CONFIG.image_process.fill_args.binarization_threshold_min
             );
-            if _otsu < 213 {threshold_level = threshold_level.min(180)}
+            if _otsu < CONFIG.image_process.fill_args.otsu_control_otsu_max {threshold_level = threshold_level.min(CONFIG.image_process.fill_args.otsu_control_binarization_threshold_max)}
             let blurred_img_bi = threshold(&gray, threshold_level);
             image.blur_bi = blurred_img_bi;
             image.integral_gray = integral_image(&image.blur_bi);
@@ -397,14 +400,16 @@ impl Baizheng for Engine {
                     fix_left_coors.push(&mut assist_point.left);
                     fix_right_coors.push(&mut assist_point.right);
                 }
+                let mut area_length = CONFIG.image_baizheng.area_assist_point_nearby_length;
+                if fix_left_coors.len() == 1 { area_length-=CONFIG.image_baizheng.single_area_assist_delength }
                 fix_coordinates_by_search_nearby_retry(
                     &img_and_model_points.img, &mut fix_left_coors,
-                    CONFIG.image_baizheng.area_assist_point_nearby_length,
+                    area_length,
                     CONFIG.image_baizheng.area_assist_point_nearby_retry
                 );
                 fix_coordinates_by_search_nearby_retry(
                     &img_and_model_points.img, &mut fix_right_coors,
-                    CONFIG.image_baizheng.area_assist_point_nearby_length,
+                    area_length,
                     CONFIG.image_baizheng.area_assist_point_nearby_retry
                 );
                 for fix_assist_point in fix_area_assist_point.assist_points.iter_mut(){

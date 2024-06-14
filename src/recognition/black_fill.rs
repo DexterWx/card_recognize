@@ -51,8 +51,8 @@ impl RecBlackFill for Engine {
                     rates.push((rate*100f32) as u8);
                     coors.push(real_coordinate);
                 }
-                let (_, var) = get_otsu(&rates);
-                if var > max_var {
+                let (_, var) = get_otsu(&rates, CONFIG.image_process.fill_args.otsu_black_fill_sep_weight);
+                if var >= max_var {
                     max_var = var;
                     max_rates = rates;
                     max_coors = coors;
@@ -182,7 +182,7 @@ fn set_single_fill_rate(options: &mut Vec<RecOption>){
 
     if options.len() == 0 {return}
     let fill_rates_u8 = get_array_values_for_otsu(options);
-    let (mut best_threshold,_) = get_otsu(&fill_rates_u8);
+    let (mut best_threshold,_) = get_otsu(&fill_rates_u8,CONFIG.image_process.fill_args.otsu_black_fill_sep_weight);
     if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() < CONFIG.image_process.fill_args.fill_same_min_max_diff_for_all_empty
         && *fill_rates_u8.iter().max().unwrap() < CONFIG.image_process.fill_args.fill_same_max
     {
@@ -207,7 +207,7 @@ fn set_multi_fill_rate(options: &mut Vec<RecOption>){
 
     if options.len() == 0 {return}
     let fill_rates_u8 = get_array_values_for_otsu(options);
-    let (mut best_threshold,_) = get_otsu(&fill_rates_u8);
+    let (mut best_threshold,_) = get_otsu(&fill_rates_u8,CONFIG.image_process.fill_args.otsu_black_fill_sep_weight);
     if *fill_rates_u8.iter().max().unwrap() - *fill_rates_u8.iter().min().unwrap() < CONFIG.image_process.fill_args.fill_same_min_max_diff_for_all_empty
         && *fill_rates_u8.iter().max().unwrap() < CONFIG.image_process.fill_args.fill_same_max
     {

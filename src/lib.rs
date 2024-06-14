@@ -30,7 +30,7 @@ mod tests {
     fn test_demo() -> Result<()> {
 
         // 直接修改id就可以测试
-        let test_id = "202433";
+        let test_id = "198639";
         let json_path = format!("dev/test_data/cards/{test_id}/scan.json");
         let image_dir = format!("dev/test_data/cards/{test_id}/images");
 
