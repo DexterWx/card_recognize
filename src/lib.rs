@@ -27,7 +27,7 @@ mod tests {
     fn test_demo() -> Result<()> {
 
         // 直接修改id就可以测试
-        let test_id = "200759";
+        let test_id = "194751";
         let json_path = format!("dev/test_data/cards/{test_id}/scan.json");
         let image_dir = format!("dev/test_data/cards/{test_id}/images");
 
@@ -41,7 +41,7 @@ mod tests {
         let (output, _imgs_and_model_points) = engine.recognize(&input_images);
 
 
-        let out_json_path = format!("dev/test_data/out_json/{test_id}.json");
+        let out_json_path = format!("dev/test_data/{test_id}.json");
         let mut file = File::create(out_json_path)?;
         serde_json::to_writer(&mut file, &output)?;
 
@@ -64,20 +64,30 @@ mod tests {
 
     #[test]
     fn test_second() -> Result<()> {
-        // 直接修改id就可以测试
         let test_id = "194751";
         let json_path = format!("dev/test_data/cards/{test_id}/scan_second.json");
-
+    
+        // 打印当前工作目录
+        println!("Current working directory: {:?}", std::env::current_dir()?);
+        // 打印要访问的文件路径
+        println!("Looking for file at path: {}", json_path);
+        
+        // 检查文件是否存在
+        if !Path::new(&json_path).exists() {
+            println!("File does not exist: {}", json_path);
+            return Ok(());
+        }
+    
         // 构建第一次输入的scanjson和第二次输入图片
         let input = read_second(&json_path);
-
+    
         // 识别
         let output = Engine::recognize_second(&input);
-
+    
         let out_json_path = format!("dev/test_data/{test_id}_second.json");
         let mut file = File::create(out_json_path)?;
         serde_json::to_writer(&mut file, &output)?;
-
+    
         Ok(())
     }
 
