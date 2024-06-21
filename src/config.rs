@@ -8,8 +8,32 @@ use std::io::BufReader;
 pub struct ImageProcess {
     pub gaussian_blur_sigma: f32,
     pub retry_args: [ProcessedImagesArgs;5],
-    pub empty_image_threshold: f64
+    pub empty_image_threshold: f64,
+    pub fill_args: FillArgs,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct FillArgs{
+    pub all_fill_or_empty_min_var: f64,
+    pub all_fill_var: f64,
+    pub all_fill_otsu: u8,
+    pub fill_same_max: u8,
+    pub empty_same_max: u8,
+    pub same_var: f64,
+    pub same_var_exam_number: f64,
+    pub otsu_black_fill_sep_weight: f64,
+    pub text_a: TextBaseRate,
+    pub text_b: TextBaseRate,
+    pub text_c: TextBaseRate,
+    pub text_d: TextBaseRate
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TextBaseRate{
+    pub text: char,
+    pub rate: f32,
+}
+
 /// 需要多次尝试的参数
 #[derive(Debug, Deserialize, Serialize)]
     pub struct ProcessedImagesArgs{
@@ -45,6 +69,7 @@ pub struct ImageBaizheng {
     pub model_point_max_distance: i32,
     pub assist_point_nearby_length: i32,
     pub area_assist_point_nearby_length: i32,
+    pub single_area_assist_delength: i32,
     pub area_assist_point_nearby_step: i32,
     pub area_assist_point_nearby_retry: u8,
     pub valid_coordinates4_cosine_similarity: f32,
@@ -61,6 +86,7 @@ pub struct Location {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ImageBlackFill {
     pub neighborhood_size: u8,
+    pub neighborhood_size_exam_number: u8,
     pub image_type: u8,
     pub min_filled_ratio: f32,
     pub debug_rendering_show_rate_move: i32,
@@ -78,6 +104,7 @@ pub struct RecognitionType {
     pub qrcode: u8,
     pub single_select: u8,
     pub multi_select: u8,
+    pub exam_number: u8,
 }
 
 /// 配置参数
@@ -92,79 +119,9 @@ pub struct Config {
 }
 
 // 全局配置单例
-#[cfg(debug_assertions)]
 pub static CONFIG: Lazy<Config> = Lazy::new(|| {
     // 读取配置文件
     let file = File::open("config.yaml").expect("Failed to open config file");
     let reader = BufReader::new(file);
     serde_yaml::from_reader(reader).expect("Failed to parse config")
-});
-
-// 定义硬编码的配置参数
-#[cfg(not(debug_assertions))]
-pub static CONFIG: Lazy<Config> = Lazy::new(|| {
-    let image_process = ImageProcess {
-        gaussian_blur_sigma: 1.0,
-        empty_image_threshold: 254.5,
-        retry_args: [
-            ProcessedImagesArgs::new(172, 1, 5),
-            ProcessedImagesArgs::new(172, 2, 5),
-            ProcessedImagesArgs::new(172, 2, 6),
-            ProcessedImagesArgs::new(172, 3, 6),
-            ProcessedImagesArgs::new(172, 0, 6),
-        ],
-    };
-    
-    let image_baizheng = ImageBaizheng {
-        page_number_diff: 0.146,
-        model_point_wh_cosine_similarity: 0.985,
-        model_points_3_angle_threshold: 1.046,
-        model_point_min_wh: 10,
-        model_point_max_wh: 70,
-        model_point_diff: 45,
-        model_point_scan_range: 6,
-        assist_point_scan_range: 8,
-        assist_point_min_distance: 6,
-        assist_point_max_distance: 25,
-        model_point_min_distance: 6,
-        model_point_max_distance: 60,
-        assist_point_nearby_length: 4,
-        area_assist_point_nearby_length: 17,
-        area_assist_point_nearby_step: 4,
-        area_assist_point_nearby_retry: 2,
-        valid_coordinates4_cosine_similarity: 0.996,
-        valid_coordinates_wh_sum_mean_dis: 8.0
-    };
-
-    let location = Location {
-        select_model_point_cal_real_coor_y_boundary: 0.7
-    };
-    
-    let image_blackfill = ImageBlackFill {
-        neighborhood_size: 5,
-        image_type: 0,
-        min_filled_ratio: 0.5,
-        debug_rendering_show_rate_move: 16,
-        debug_rendering_show_rate_scale: 20.0,
-    };
-    
-    let recognize_type = RecognitionType {
-        coordinate: 6,
-        barcode: 5,
-        black_fill: 1,
-        number: 3,
-        vx: 2,
-        qrcode: 4,
-        single_select: 7,
-        multi_select: 8,
-    };
-
-    Config {
-        image_process,
-        image_baizheng,
-        image_blackfill,
-        recognize_type,
-        location,
-        // 其他配置参数
-    }
 });

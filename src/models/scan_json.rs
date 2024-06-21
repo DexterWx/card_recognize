@@ -219,3 +219,9 @@ pub struct InputSecond {
 pub struct PageSecond {
     pub recognizes: Vec<Recognition>
 }
+
+#[derive(Debug)]
+pub enum PageEnum<'a> {
+    Page(&'a Page),
+    PageSecond(&'a PageSecond),
+}

@@ -10,8 +10,11 @@ use image::Luma;
 use image::Rgb;
 use imageproc::contours::find_contours;
 use imageproc::contours::Contour;
+
 use imageproc::drawing::draw_filled_circle_mut;
 use imageproc::drawing::draw_filled_rect_mut;
+
+
 
 use imageproc::integral_image::sum_image_pixels;
 use imageproc::rect::Rect;
@@ -205,7 +208,7 @@ impl Baizheng for Engine {
             };
             let old_diff = calculate_page_and_img_diff(&match_info, &image_and_points);
             let new_diff = calculate_page_and_img_diff(&match_info, &_image_and_points);
-            if old_diff < new_diff {
+            if old_diff <= new_diff {
                 #[cfg(debug_assertions)]
                 {
                     println!("定位点不需要修复: old_diff {old_diff:?} new_diff {new_diff:?}");
@@ -222,6 +225,49 @@ impl Baizheng for Engine {
             fix_model_points_coordinate(img, coors, CONFIG.image_baizheng.model_point_scan_range);
             rotate_img_and_model_points(img, coors, &center_and_angle.center, center_and_angle.angle);
         }
+
+        // // 重新计算otsu值，防止扫描造成的图片周围黑白边干扰
+        // for image_and_model_points in processed_images_res.iter_mut(){
+        //     if image_and_model_points.is_none(){continue}
+        //     let image_and_model_points = image_and_model_points.as_mut().unwrap();
+        //     let image = &mut image_and_model_points.img;
+        //     let model_points = &image_and_model_points.real_model_points;
+        //     let gray = gaussian_blur_f32(&image.blur, CONFIG.image_process.fill_args.gaussian_blur_sigma);
+        //     // 对模糊后的图像进行二值化，为填图准备的二值图
+        //     let crop_gray = image::imageops::crop_imm(
+        //         &gray, model_points[0].x as u32, model_points[0].y as u32,
+        //         (model_points[1].x-model_points[0].x) as u32,
+        //         (model_points[2].y-model_points[0].y) as u32,
+        //     ).to_image();
+
+        //     let (_otsu,variance) = otsu_level_and_variance(&crop_gray);
+        //     let mut otsu = (_otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_base_w) as u8;
+        //     if variance >= CONFIG.image_process.fill_args.binarization_threshold_var_decrease2 {
+        //         otsu = (otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_var_decrease2_w) as u8
+        //     }
+        //     else if variance >= CONFIG.image_process.fill_args.binarization_threshold_var_decrease1 {
+        //         otsu = (otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_var_decrease1_w) as u8
+        //     }
+
+        //     if variance < CONFIG.image_process.fill_args.binarization_threshold_var_increase {
+        //         otsu = (otsu as f32 * CONFIG.image_process.fill_args.binarization_threshold_var_increase_w) as u8
+        //     }
+        //     #[cfg(debug_assertions)]
+        //     {
+        //         println!("otsu: {_otsu:?} -> {otsu:?}");
+        //         println!("variance: {variance:?}");
+        //     }
+        //     let mut threshold_level = otsu.min(
+        //         CONFIG.image_process.fill_args.binarization_threshold_max
+        //     ).max(
+        //         CONFIG.image_process.fill_args.binarization_threshold_min
+        //     );
+        //     if _otsu < CONFIG.image_process.fill_args.otsu_control_otsu_max {threshold_level = threshold_level.min(CONFIG.image_process.fill_args.otsu_control_binarization_threshold_max)}
+        //     let blurred_img_bi = threshold(&gray, threshold_level);
+        //     image.blur = gray;
+        //     image.blur_bi = blurred_img_bi;
+        //     image.integral_gray = integral_image(&image.blur_bi);
+        // } 
 
         processed_images_res
     }
@@ -355,14 +401,16 @@ impl Baizheng for Engine {
                     fix_left_coors.push(&mut assist_point.left);
                     fix_right_coors.push(&mut assist_point.right);
                 }
+                let mut area_length = CONFIG.image_baizheng.area_assist_point_nearby_length;
+                if fix_left_coors.len() == 1 { area_length-=CONFIG.image_baizheng.single_area_assist_delength }
                 fix_coordinates_by_search_nearby_retry(
                     &img_and_model_points.img, &mut fix_left_coors,
-                    CONFIG.image_baizheng.area_assist_point_nearby_length,
+                    area_length,
                     CONFIG.image_baizheng.area_assist_point_nearby_retry
                 );
                 fix_coordinates_by_search_nearby_retry(
                     &img_and_model_points.img, &mut fix_right_coors,
-                    CONFIG.image_baizheng.area_assist_point_nearby_length,
+                    area_length,
                     CONFIG.image_baizheng.area_assist_point_nearby_retry
                 );
                 for fix_assist_point in fix_area_assist_point.assist_points.iter_mut(){

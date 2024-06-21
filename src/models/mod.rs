@@ -60,6 +60,7 @@ pub mod engine_rec{
         pub rgb: RgbImage,
         /// 高斯模糊图，用于后续调参数生成不同的形态图
         pub blur: GrayImage,
+        pub blur_bi: GrayImage,
         /// 形态学处理
         pub morphology: GrayImage,
         /// 二值灰度积分图，用来求区域像素值总和

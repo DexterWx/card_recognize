@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
-use super::{card::MyPoint, scan_json::{AreaAssistPoint, Coordinate, InputScan, InputSecond}};
+use super::{card::MyPoint, scan_json::{AreaAssistPoint, Coordinate, InputScan, InputSecond, Value}};
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -55,7 +55,9 @@ pub struct Recognize{
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RecOption{
     pub value: Option<Value>,
-    pub coordinate: Option<Coordinate>
+    pub coordinate: Option<Coordinate>,
+    pub _value: Option<Value>,
+    pub invalue: Option<Value>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,12 +66,31 @@ pub struct PageSize{
     pub h: i32
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)] // Allows using multiple types for the enum variants
-pub enum Value {
-    String(String),
-    Integer(i32),
-    Float(f32),
+
+impl Value {
+    pub fn to_float(&self) -> Option<f32> {
+        match self {
+            Value::String(_) => None,
+            Value::Integer(_) => None, // Return None if it's an Integer
+            Value::Float(f) => Some(*f),
+        }
+    }
+
+    pub fn to_i32(&self) -> Option<i32> {
+        match self {
+            Value::String(_) => None,
+            Value::Integer(i) => Some(*i),
+            Value::Float(_) => None, // Return None if it's a Float
+        }
+    }
+
+    pub fn to_string(&self) -> Option<String> {
+        match self {
+            Value::String(s) => Some(s.clone()),
+            Value::Integer(_) => None, // Return None if it's an Integer
+            Value::Float(_) => None, // Return None if it's a Float
+        }
+    }
 }
 
 impl OutputRec{
@@ -91,10 +112,12 @@ impl OutputRec{
                         Recognize {
                             rec_id: rec.rec_id.clone(),
                             rec_type: rec.rec_type,
-                            rec_options: rec.options.iter().map(|_|{
+                            rec_options: rec.options.iter().map(|rec_value|{
                                 RecOption{
                                     value: None,
-                                    coordinate: None
+                                    coordinate: None,
+                                    _value: None,
+                                    invalue: rec_value.value.clone()
                                 }
                             }).collect()
                         }
@@ -129,10 +152,12 @@ impl OutputRecSecond{
                         Recognize {
                             rec_id: rec.rec_id.clone(),
                             rec_type: rec.rec_type,
-                            rec_options: rec.options.iter().map(|_|{
+                            rec_options: rec.options.iter().map(|rec_value|{
                                 RecOption{
                                     value: None,
-                                    coordinate: None
+                                    coordinate: None,
+                                    _value: None,
+                                    invalue: rec_value.value.clone()
                                 }
                             }).collect()
                         }
@@ -141,4 +166,10 @@ impl OutputRecSecond{
             }).collect()
         }
     }
+}
+
+#[derive(Debug)]
+pub enum OutputEnum<'a> {
+    OutputRec(&'a mut OutputRec),
+    OutputRecSecond(&'a mut OutputRecSecond),
 }
