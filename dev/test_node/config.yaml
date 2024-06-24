@@ -1,12 +1,72 @@
 image_process:
   gaussian_blur_sigma: 1.0
-  binarization_threshold: 180
-  morphology_kernel: 5
   empty_image_threshold: 254.5
+  fill_args:
+    all_fill_or_empty_min_var: 100.0
+    all_fill_var: 13.0
+    all_fill_otsu: 116
+    fill_same_max: 85
+    empty_same_max: 65
+    same_var: 135
+    same_var_exam_number: 66
+    otsu_black_fill_sep_weight: 0.0
+    text_a:
+      text: 'A'
+      rate: 0.0
+    text_b:
+      text: 'B'
+      rate: 0.05
+    text_c:
+      text: 'C'
+      rate: -0.05
+    text_d:
+      text: 'D'
+      rate: 0.0
+  retry_args:
+    - binarization_threshold: 172
+      erode_kernel: 1
+      morphology_kernel: 5
+    - binarization_threshold: 172
+      erode_kernel: 2
+      morphology_kernel: 5
+    - binarization_threshold: 172
+      erode_kernel: 2
+      morphology_kernel: 6
+    - binarization_threshold: 172
+      erode_kernel: 3
+      morphology_kernel: 6
+    - binarization_threshold: 172
+      erode_kernel: 0
+      morphology_kernel: 5
 image_baizheng:
-  page_number_diff: 0.21
+  page_number_diff: 0.146
+  model_points_3_angle_threshold: 1.046
   model_point_wh_cosine_similarity: 0.985
-  model_point_diff: 50
+  model_point_min_wh: 10
+  model_point_max_wh: 70
+  model_point_diff: 45
+  model_point_scan_range: 6
+  assist_point_scan_range: 8
+  assist_point_min_distance: 6
+  assist_point_max_distance: 25
+  model_point_min_distance: 6
+  model_point_max_distance: 60
+  assist_point_nearby_length: 4
+  area_assist_point_nearby_length: 22
+  single_area_assist_delength: 6
+  area_assist_point_nearby_step: 3
+  area_assist_point_nearby_retry: 2
+  valid_coordinates4_cosine_similarity: 0.996
+  valid_coordinates_wh_sum_mean_dis: 8.0
+location:
+  select_model_point_cal_real_coor_y_boundary: 0.7
+image_blackfill:
+  neighborhood_size: 9
+  neighborhood_size_exam_number: 16
+  image_type: 0
+  min_filled_ratio: 0.5
+  debug_rendering_show_rate_move: 16
+  debug_rendering_show_rate_scale: 20.0
 recognize_type:
   black_fill: 1
   vx: 2
@@ -14,5 +74,6 @@ recognize_type:
   qrcode: 4
   barcode: 5
   coordinate: 6
-
-  
+  single_select: 7
+  multi_select: 8
+  exam_number: 9

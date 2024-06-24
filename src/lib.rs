@@ -1,5 +1,8 @@
 #![deny(clippy::all)]
 
+#[macro_use]
+extern crate napi_derive;
+
 pub mod recognition;
 pub mod models;
 pub mod my_utils;
@@ -160,52 +163,44 @@ mod tests {
 
 
 pub mod build{
-    use crate::{models::{self}, recognition};
+    use crate::{models::{self, scan_json::InputSecond}, recognition};
 
     use models::scan_json::{InputImage, InputScan};
     use recognition::engine::Engine;
-    use std::ffi::{CString, CStr};
-    use std::os::raw::c_char;
 
     // 全局变量的引擎结构体
     static mut ENGINE: Option<Engine> = None;
 
-    #[no_mangle]
-    pub extern "C" fn initialize(input_json: *const c_char) {
-        // 将 C 字符串指针转换为 Rust 字符串
-        let c_str = unsafe { CStr::from_ptr(input_json) };
-        let input_json_str = c_str.to_string_lossy().into_owned();
-
-        // 解析 JSON 字符串并进行初始化操作
-        let input_scan: InputScan = serde_json::from_str(&input_json_str).expect("Parse Input Failed");
+    #[napi]
+    pub fn initialize(input_json: String){
+        let input_scan: InputScan = serde_json::from_str(&input_json).expect("Parse Input Failed");
         let input_scan = input_scan.renew();
-
         // 进行一些初始化操作
         unsafe {
             ENGINE = Some(Engine::new(input_scan));
         }
     }
 
-    #[no_mangle]
-    pub extern "C" fn inference(input_json_ptr: *const c_char) -> *mut c_char {
-        // 将 C 字符串指针转换为 Rust 字符串
-        let input_json_cstr = unsafe { CStr::from_ptr(input_json_ptr) };
-        let input_json_str = input_json_cstr.to_string_lossy().into_owned();
-
+    #[napi]
+    pub fn inference(input_json:String) -> String {
         unsafe {
             // 检查引擎是否已初始化
             let engine = ENGINE.as_ref().expect("Engine not initialized");
 
-            // 解析 JSON 字符串并进行推理操作
-            let input_image: InputImage = serde_json::from_str(&input_json_str).expect("Parse Input Failed");
+            let input_image: InputImage = serde_json::from_str(&input_json).expect("Parse Input Failed");
             let result = engine.recognize(&input_image);
             let output_json = result.0;
 
             // 使用 serde_json 将结果序列化为 JSON 字符串
-            let output_json_str = serde_json::to_string(&output_json).expect("Failed to serialize JSON");
-
-            // 将 Rust 字符串转换为 C 字符串指针并返回
-            CString::new(output_json_str).unwrap().into_raw()
+            serde_json::to_string(&output_json).expect("Failed to serialize JSON")
         }
+    }
+
+    #[napi]
+    pub fn inference_second(input_json:String) -> String {
+        let input: InputSecond = serde_json::from_str(&input_json).expect("Parse Input Failed");
+        let result = Engine::recognize_second(&input);
+        // 使用 serde_json 将结果序列化为 JSON 字符串
+        serde_json::to_string(&result).expect("Failed to serialize JSON")
     }
 }
