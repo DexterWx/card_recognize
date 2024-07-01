@@ -454,7 +454,7 @@ impl Baizheng for Engine {
                 draw_filled_rect_mut(
                     &mut rendering,
                     Rect::at(coor.x, coor.y).of_size(coor.w as u32, coor.h as u32),
-                    Rgb([255u8, 0u8, 0u8]),
+                    Rgb([0u8, 255u8, 0u8]),
                 );
             }
             let img_base64 = image_to_base64(&rendering);

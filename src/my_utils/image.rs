@@ -347,7 +347,7 @@ pub fn calculate_page_number_difference(
         real_fill_rates.push(rate_pixel);
     }
 
-    mean_absolute_difference(&fill_rates, &real_fill_rates)
+    -cosine_similarity(&fill_rates, &real_fill_rates)
 }
 
 pub fn image_to_base64(img: &RgbImage) -> String {
